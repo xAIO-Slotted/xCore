@@ -2,8 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/../xAIO/xAIO.iml" filepath="$PROJECT_DIR$/../xAIO/xAIO.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/xCore.iml" filepath="$PROJECT_DIR$/.idea/xCore.iml" />
+      <module fileurl="file://$PROJECT_DIR$/xCore.iml" filepath="$PROJECT_DIR$/xCore.iml" />
     </modules>
   </component>
 </project>
