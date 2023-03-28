@@ -1,7 +1,12 @@
+DB = {}
+X = {}
+X.helper = {}
+
 -- Teams
 local TEAM_ALLY = g_local.team
 local TEAM_ENEMY = 300 - g_local.team
 local TEAM_JUNGLE = 300
+
 -- DamageTypes
 local DAMAGE_TYPE_PHYSICAL = 1
 local DAMAGE_TYPE_MAGICAL = 2
@@ -12,6 +17,7 @@ local ItemSlots = { e_spell_slot.item1, e_spell_slot.item2, e_spell_slot.item3, 
 
 -- Dash Database
 -- Contains all the dashes and their spellslots.
+
 DB.Dash = {
 	aatrox = {
 		{
@@ -1137,6 +1143,8 @@ DB.SpellDB = {
 
 }
 
+
+
 local get_aa_modifiers = function(source, target, targetIsMinion)
 	local args = {
 	  source = source,
@@ -1271,22 +1279,9 @@ local GetHeroAADamage = function(source, target, SpecialAA)
 	  percentMod = percentMod * get_crit_percent(args.source)
 	end
 	return percentMod * args.CalculatedPhysical + args.CalculatedMagical + args.CalculatedTrue
-  end
+end
 
-X.helper.get_aa_damage = function(source, target, respectPassives)
-	local targetIsMinion = target:is_minion();
-	local sourceIsHero = source:is_hero();
-	if respectPassives == nil then
-	  respectPassives = true
-	end
-	if source == nil or target == nil then
-	  return 0
-	end
-	if respectPassives and sourceIsHero then
-	  return GetHeroAADamage(source, target, SPECIAL_AA(source, target,targetIsMinion))
-	end
-	return X.helper.calculate_damage(source, target, DAMAGE_TYPE_PHYSICAL, source.totalDamage, true)
-  end
+
 
 X.helper.calculate_damage = function(source, target, DamageType, amount, IsAA)
 	local base_resist = 0
@@ -1357,9 +1352,26 @@ X.helper.calculate_damage = function(source, target, DamageType, amount, IsAA)
 	if target:is_minion() then
 	  flatreduction = flatreduction - target.flatDamageReduction
 	end
-  
+
 	return math.max(math.floor(bonusPercent * DamageReductionMod(source, target, DamageType, PassivePercentMod(source, target, DamageType, post_mitigation) * (amount + flatPassive)) + flatreduction), 0)
 end
+
+X.helper.get_aa_damage = function(source, target, respectPassives)
+	local targetIsMinion = target:is_minion();
+	local sourceIsHero = source:is_hero();
+	if respectPassives == nil then
+	  respectPassives = true
+	end
+	if source == nil or target == nil then
+	  return 0
+	end
+	if respectPassives and sourceIsHero then
+	  return GetHeroAADamage(source, target, SPECIAL_AA(source, target,targetIsMinion))
+	end
+	print("can we even see helper???")
+	return X.helper.calculate_damage(source, target, DAMAGE_TYPE_PHYSICAL, source.totalDamage, true)
+end
+
 
 X.helper.get_spell_damage = function(spell, target, source, stage, level)
 	local source = source or g_local
@@ -1391,3 +1403,6 @@ X.helper.get_spell_damage = function(spell, target, source, stage, level)
 	end
 	return 0
   end
+
+local xCore = {DB, X}
+return xCore
