@@ -1408,7 +1408,6 @@ X.helper.get_aa_damage = function(source, target, respectPassives)
 	if respectPassives and sourceIsHero then
 		return GetHeroAADamage(source, target, SPECIAL_AA(source, target, targetIsMinion))
 	end
-	print("can we even see helper???")
 	return X.helper.calculate_damage(source, target, DAMAGE_TYPE_PHYSICAL, source.totalDamage, true)
 end
 
