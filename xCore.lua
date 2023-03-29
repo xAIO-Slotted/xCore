@@ -322,6 +322,7 @@ end
 -- Damage Library
 --------------------------------------------------------------------------------
 
+-- TODO: update these to latest patch
 x.database.CHAMP_PASSIVES = {
 	["Aatrox"] = function(args) local source = args.source -- 12.20
 		if not x.buffcache:has_buff(source, "aatroxpassiveready") then return end
@@ -876,8 +877,9 @@ x.database.CHAMP_PASSIVES = {
 		args.raw_magical = args.raw_magical + mod + 0.2 * source:get_ability_power()
 	end
 }
+-- TODO: once lua sdk supports items, switch to id's instead of names.
 x.database.ITEM_PASSIVES = {
-	[3504] = function(args) local source = args.source -- Ardent Censer
+	["BaseSpell"] = function(args) local source = args.source -- Ardent Censer
 		if not x.buffcache:has_buff(source, "3504Buff") then return end
 		args.raw_magical = args.raw_magical + 4.12 + 0.88 * args.unit.level
 	end,
@@ -891,7 +893,7 @@ x.database.ITEM_PASSIVES = {
 		args.raw_physical = args.raw_physical + 0.4 * stacks
 				+ 0.01 * stacks * source:get_attack_damage()
 	end,
-	[6632] = function(args) local source = args.source -- Divine Sunderer
+	["BaseSpell"] = function(args) local source = args.source -- Divine Sunderer
 		if not x.buffcache:has_buff(source, "6632buff") then return end
 		args.raw_physical = args.raw_physical + 1.25 *
 				source:get_attack_damage() + (x.functions.helper:is_melee(source)
@@ -903,27 +905,27 @@ x.database.ITEM_PASSIVES = {
 	[1054] = function(args) -- Doran's Shield
 		args.raw_physical = args.raw_physical + 5
 	end,
-	[3508] = function(args) local source = args.source -- Essence Reaver
+	["BloodthirsterDummySpell"] = function(args) local source = args.source -- Essence Reaver
 		if not x.buffcache:has_buff(source, "3508buff") then return end
 		args.raw_physical = args.raw_physical + 0.4 *
 				source:get_bonus_attack_damage() + source:get_attack_damage()
 	end,
-	[3124] = function(args) local source = args.source -- Guinsoo's Rageblade
+	["BaseSpell"] = function(args) local source = args.source -- Guinsoo's Rageblade
 		args.raw_physical = args.raw_physical +
 				math.min(200, source.crit_chance * 200)
 	end,
-	[2015] = function(args) local source = args.source -- Kircheis Shard
+	["BaseSpell"] = function(args) local source = args.source -- Kircheis Shard
 		local buff = x.buffcache:get_buff(source, "itemstatikshankcharge")
 		local damage = buff and buff:get_amount() == 100 and 80 or 0
 		args.raw_magical = args.raw_magical + damage
 	end,
-	[6672] = function(args) local source = args.source -- Kraken Slayer
+	["BaseSpell"] = function(args) local source = args.source -- Kraken Slayer
 		local buff = x.buffcache:get_buff(source, "6672buff")
 		if not buff or buff:get_amount() ~= 2 then return end
 		args.true_damage = args.true_damage + 50 +
 				0.4 * source:get_bonus_attack_damage()
 	end,
-	[3100] = function(args) local source = args.source -- Lich Bane
+	["BaseSpell"] = function(args) local source = args.source -- Lich Bane
 		if not x.buffcache:has_buff(source, "lichbane") then return end
 		args.raw_magical = args.raw_magical + 0.75 *
 				source:get_attack_damage() + 0.5 * source:get_ability_power()
@@ -947,7 +949,7 @@ x.database.ITEM_PASSIVES = {
 		args.raw_physical = args.raw_physical +
 				math.min(175, 175 * source.crit_chance)
 	end,
-	[3094] = function(args) local source = args.source -- Rapid Firecannon
+	["BaseSpell"] = function(args) local source = args.source -- Rapid Firecannon
 		local buff = x.buffcache:get_buff(source, "itemstatikshankcharge")
 		local damage = buff and buff:get_amount() == 100 and 120 or 0
 		args.raw_magical = args.raw_magical + damage
@@ -955,11 +957,11 @@ x.database.ITEM_PASSIVES = {
 	[1043] = function(args) -- Recurve Bow
 		args.raw_physical = args.raw_physical + 15
 	end,
-	[3057] = function(args) local source = args.source -- Sheen
+	["BaseSpell"] = function(args) local source = args.source -- Sheen
 		if not x.buffcache:has_buff(source, "sheen") then return end
 		args.raw_physical = args.raw_physical + source:get_attack_damage()
 	end,
-	[3095] = function(args) local source = args.source -- Stormrazor
+	["BaseSpell"] = function(args) local source = args.source -- Stormrazor
 		local buff = x.buffcache:get_buff(source, "itemstatikshankcharge")
 		local damage = buff and buff:get_amount() == 100 and 120 or 0
 		args.raw_magical = args.raw_magical + damage
@@ -972,11 +974,11 @@ x.database.ITEM_PASSIVES = {
 		local damage = mod[1] + mod[2] * args.source.max_health
 		args.raw_physical = args.raw_physical + damage
 	end,
-	[3078] = function(args) local source = args.source -- Trinity Force
+	["BaseSpell"] = function(args) local source = args.source -- Trinity Force
 		if not x.buffcache:has_buff(source, "3078trinityforce") then return end
 		args.raw_physical = args.raw_physical + 2 * source:get_attack_damage()
 	end,
-	[6664] = function(args) local source = args.source -- Turbo Chemtank
+	["BaseSpell"] = function(args) local source = args.source -- Turbo Chemtank
 		local buff = x.buffcache:get_buff(source, "item6664counter")
 		if not buff or buff:get_amount()~= 100 then return end
 		local damage = 35.29 + 4.71 * source.level + 0.01 *
