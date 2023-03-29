@@ -1,0 +1,3 @@
+[submodule "slotted_sdk"]
+	path = slotted_sdk
+	url = https://github.com/xAIO-Slotted/slotted_sdk
