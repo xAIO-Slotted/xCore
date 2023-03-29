@@ -1396,21 +1396,17 @@ X.helper.Slot_to_letter = function(slot)
 	return letter
 end
 
-X.helper.get_aa_damage = function(source, target, respectPassives)
-	local targetIsMinion = target:is_minion();
-	local sourceIsHero = source:is_hero();
-	if respectPassives == nil then
-		respectPassives = true
+X.helper.is_alive = function(index)
+	local obj = features.entity_list:get_by_index(index)
+	local is_alive = false
+	if obj then 
+		is_alive = obj:is_alive()
+		if is_alive then
+			if has_buff(obj, "sionpassivezombie") then is_alive = false end
+		end
 	end
-	if source == nil or target == nil then
-		return 0
-	end
-	if respectPassives and sourceIsHero then
-		return GetHeroAADamage(source, target, SPECIAL_AA(source, target, targetIsMinion))
-	end
-	return X.helper.calculate_damage(source, target, DAMAGE_TYPE_PHYSICAL, source.totalDamage, true)
+	return is_alive
 end
-
 
 X.helper.get_spell_damage = function(spell, target, source, stage, level)
 	local source = source or g_local
