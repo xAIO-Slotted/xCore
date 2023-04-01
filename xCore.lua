@@ -2045,8 +2045,10 @@ end)
 
 cheat.on("renderer.draw", function()
 	local range = 9999999
-	x.target_selector:get_target(range) -- Ensure the cache is updated
+	x.target_selector:get_target(range)
 	local cache = targets_cache[range]
+
+	g_render:circle_3d(myHero.position, color:new(0, 255, 0, 55), 55, 3, 55, 1)
 
 	if cache and cache.enemies then
 		for i, data in ipairs(cache.enemies) do
@@ -2082,7 +2084,4 @@ cheat.on("features.run", function()
 
 end)
 
-cheat.on("renderer.draw", function()
-
-
-end)
+return x
