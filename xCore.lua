@@ -13,6 +13,33 @@ local ColorDarkRed = color:new(255, 139, 0, 0)
 local ColorDarkBlue = color:new(255, 0, 0, 139)
 local ColorTransparentBlack = color:new(150, 0, 0, 0)
 
+-- create a function for defining classes
+local function class(properties, ...)
+	local cls = {}
+	cls.__index = cls
+
+	for k, v in pairs(properties) do
+		cls[k] = v
+	end
+
+	for _, property in ipairs({...}) do
+		for k, v in pairs(property) do
+			cls[k] = v
+		end
+	end
+
+	function cls:new(...)
+		local instance = setmetatable({}, cls)
+		if self.init then
+			self:init(...)
+		end
+		return instance
+	end
+
+	return cls
+end
+
+
 --------------------------------------
 -- LINQ --
 
@@ -1877,92 +1904,14 @@ x.database.DMG_LIST = {
 	},
 }
 
-
 --------------------------------------------------------------------------------
 
 
--- Target Selector // very experimental and wip. needs to be improved.
+-- Object Sections // Weight, Target
 --------------------------------------------------------------------------------
-x.target_selector = {}
-
-x.target_selector.PRIORITY_LIST = {
-	Aatrox = 3, Ahri = 4, Akali = 4, Akshan = 5, Alistar = 1,
-	Amumu = 1, Anivia = 4, Annie = 4, Aphelios = 5, Ashe = 5,
-	AurelionSol = 4, Azir = 4, Bard = 3, Belveth = 3, Blitzcrank = 1,
-	Brand = 4, Braum = 1, Caitlyn = 5, Camille = 4, Cassiopeia = 4,
-	Chogath = 1, Corki = 5, Darius = 2, Diana = 4, DrMundo = 1,
-	Draven = 5, Ekko = 4, Elise = 3, Evelynn = 4, Ezreal = 5,
-	FiddleSticks = 3, Fiora = 4, Fizz = 4, Galio = 1, Gangplank = 4,
-	Garen = 1, Gnar = 1, Gragas = 2, Graves = 4, Gwen = 3,
-	Hecarim = 2, Heimerdinger = 3, Illaoi = 3, Irelia = 3,
-	Ivern = 1, Janna = 2, JarvanIV = 3, Jax = 3, Jayce = 4,
-	Jhin = 5, Jinx = 5, Kaisa = 5, Kalista = 5, Karma = 4,
-	Karthus = 4, Kassadin = 4, Katarina = 4, Kayle = 4, Kayn = 4,
-	Kennen = 4, Khazix = 4, Kindred = 4, Kled = 2, KogMaw = 5, KSante = 2,
-	Leblanc = 4, LeeSin = 3, Leona = 1, Lillia = 4, Lissandra = 4,
-	Lucian = 5, Lulu = 3, Lux = 4, Malphite = 1, Malzahar = 3,
-	Maokai = 2, MasterYi = 5, Milio = 3, MissFortune = 5, MonkeyKing = 3,
-	Mordekaiser = 4, Morgana = 3, Nami = 3, Nasus = 2, Nautilus = 1,
-	Neeko = 4, Nidalee = 4, Nilah = 5, Nocturne = 4, Nunu = 2,
-	Olaf = 2, Orianna = 4, Ornn = 2, Pantheon = 3, Poppy = 2,
-	Pyke = 4, Qiyana = 4, Quinn = 5, Rakan = 3, Rammus = 1,
-	RekSai = 2, Rell = 5, Renata = 3, Renekton = 2, Rengar = 4,
-	Riven = 4, Rumble = 4, Ryze = 4, Samira = 5, Sejuani = 2,
-	Senna = 5, Seraphine = 4, Sett = 2, Shaco = 4, Shen = 1,
-	Shyvana = 2, Singed = 1, Sion = 1, Sivir = 5, Skarner = 2,
-	Sona = 3, Soraka = 4, Swain = 3, Sylas = 4, Syndra = 4,
-	TahmKench = 1, Taliyah = 4, Talon = 4, Taric = 1, Teemo = 4,
-	Thresh = 1, Tristana = 5, Trundle = 2, Tryndamere = 4,
-	TwistedFate = 4, Twitch = 5, Udyr = 2, Urgot = 2, Varus = 5,
-	Vayne = 5, Veigar = 4, Velkoz = 4, Vex = 4, Vi = 2,
-	Viego = 4, Viktor = 4, Vladimir = 3, Volibear = 2, Warwick = 2,
-	Xayah = 5, Xerath = 4, Xinzhao = 3, Yasuo = 4, Yone = 4,
-	Yorick = 2, Yuumi = 2, Zac = 1, Zed = 4, Zeri = 5,
-	Ziggs = 4, Zilean = 3, Zoe = 4, Zyra = 3
-}
-
-local TARGET_CACHE = {}
 
 local Weight = {}
 Weight.__index = Weight
-
-local WEIGHT_TABLE = {
-	[1] = {
-		distance = 1,
-		damage = 1,
-		priority = 1,
-		health = 1.5
-	},
-	[2] = {
-		distance = 2,
-		damage = 2,
-		priority = 2,
-		health = 1.5
-	}
-}
-
-local CALC_WEIGHT = {
-	[1] = function(a, b)
-		local d = x.math:dis_sq(myHero.position, b.position)
-		local w = d / 1000000
-		if not x.helper:is_melee(b) then w = w * WEIGHT_TABLE[1].distance else w = w * WEIGHT_TABLE[2].distance end
-		return w
-	end,
-	[2] = function(a, b)
-		local a_dmg = x.damagelib:calc_dmg(myHero, a, 100) / (1 + a.health)
-		local b_dmg = x.damagelib:calc_dmg(myHero, b, 100) / (1 + b.health)
-		return a_dmg / b_dmg
-	end,
-	[3] = function(a, b)
-		local mod = {1, 1.5, 1.75, 2, 2.5}
-		local pa = mod[x.target_selector.PRIORITY_LIST[a.champion_name] or 3]
-		local pb = mod[x.target_selector.PRIORITY_LIST[b.champion_name] or 3]
-		return pa / pb
-	end,
-	[4] = function(a, b)
-		return b.health / a.health
-	end
-}
 
 function Weight.new(distance, damage, priority, health)
 	local self = setmetatable({}, Weight)
@@ -1977,7 +1926,7 @@ function Weight.new(distance, damage, priority, health)
 end
 
 local Target = {}
-Weight.__index = Weight
+Target.__index = Target
 
 function Target.new(unit, weight)
 	local self = setmetatable({}, Target)
@@ -1986,89 +1935,144 @@ function Target.new(unit, weight)
 	return self
 end
 
-local function calculateWeight(a, b)
-	return Weight.new(
-			CALC_WEIGHT[1](a, b),
-			CALC_WEIGHT[2](a, b),
-			CALC_WEIGHT[3](a, b),
-			CALC_WEIGHT[4](a, b)
-	)
-end
+--------------------------------------------------------------------------------
 
 
-function x.target_selector:get_priority(unit)
-	local idk = {1, 1.5, 1.75, 2, 2.5}
-	return idk[x.target_selector.PRIORITY_LIST[unit.champion_name] or 3]
-end
+-- Target Selector // very experimental and wip. needs to be improved.
+--------------------------------------------------------------------------------
+local target_selector = class({
+	PRIORITY_LIST = {
+		Aatrox = 3, Ahri = 4, Akali = 4, Akshan = 5, Alistar = 1,
+		Amumu = 1, Anivia = 4, Annie = 4, Aphelios = 5, Ashe = 5,
+		AurelionSol = 4, Azir = 4, Bard = 3, Belveth = 3, Blitzcrank = 1,
+		Brand = 4, Braum = 1, Caitlyn = 5, Camille = 4, Cassiopeia = 4,
+		Chogath = 1, Corki = 5, Darius = 2, Diana = 4, DrMundo = 1,
+		Draven = 5, Ekko = 4, Elise = 3, Evelynn = 4, Ezreal = 5,
+		FiddleSticks = 3, Fiora = 4, Fizz = 4, Galio = 1, Gangplank = 4,
+		Garen = 1, Gnar = 1, Gragas = 2, Graves = 4, Gwen = 3,
+		Hecarim = 2, Heimerdinger = 3, Illaoi = 3, Irelia = 3,
+		Ivern = 1, Janna = 2, JarvanIV = 3, Jax = 3, Jayce = 4,
+		Jhin = 5, Jinx = 5, Kaisa = 5, Kalista = 5, Karma = 4,
+		Karthus = 4, Kassadin = 4, Katarina = 4, Kayle = 4, Kayn = 4,
+		Kennen = 4, Khazix = 4, Kindred = 4, Kled = 2, KogMaw = 5, KSante = 2,
+		Leblanc = 4, LeeSin = 3, Leona = 1, Lillia = 4, Lissandra = 4,
+		Lucian = 5, Lulu = 3, Lux = 4, Malphite = 1, Malzahar = 3,
+		Maokai = 2, MasterYi = 5, Milio = 3, MissFortune = 5, MonkeyKing = 3,
+		Mordekaiser = 4, Morgana = 3, Nami = 3, Nasus = 2, Nautilus = 1,
+		Neeko = 4, Nidalee = 4, Nilah = 5, Nocturne = 4, Nunu = 2,
+		Olaf = 2, Orianna = 4, Ornn = 2, Pantheon = 3, Poppy = 2,
+		Pyke = 4, Qiyana = 4, Quinn = 5, Rakan = 3, Rammus = 1,
+		RekSai = 2, Rell = 5, Renata = 3, Renekton = 2, Rengar = 4,
+		Riven = 4, Rumble = 4, Ryze = 4, Samira = 5, Sejuani = 2,
+		Senna = 5, Seraphine = 4, Sett = 2, Shaco = 4, Shen = 1,
+		Shyvana = 2, Singed = 1, Sion = 1, Sivir = 5, Skarner = 2,
+		Sona = 3, Soraka = 4, Swain = 3, Sylas = 4, Syndra = 4,
+		TahmKench = 1, Taliyah = 4, Talon = 4, Taric = 1, Teemo = 4,
+		Thresh = 1, Tristana = 5, Trundle = 2, Tryndamere = 4,
+		TwistedFate = 4, Twitch = 5, Udyr = 2, Urgot = 2, Varus = 5,
+		Vayne = 5, Veigar = 4, Velkoz = 4, Vex = 4, Vi = 2,
+		Viego = 4, Viktor = 4, Vladimir = 3, Volibear = 2, Warwick = 2,
+		Xayah = 5, Xerath = 4, Xinzhao = 3, Yasuo = 4, Yone = 4,
+		Yorick = 2, Yuumi = 2, Zac = 1, Zed = 4, Zeri = 5,
+		Ziggs = 4, Zilean = 3, Zoe = 4, Zyra = 3
+	},
+	TARGET_CACHE = {},
+	WEIGHT_TABLE = {
+		[1] = {
+			distance = 1,
+			damage = 1,
+			priority = 1,
+			health = 1.5
+		},
+		[2] = {
+			distance = 2,
+			damage = 2,
+			priority = 2,
+			health = 1.5
+		}
+	},
 
-local targets_cache = {}
+	WEIGHT_CACHE = {
+		function(self, a, b)
+		local d = x.math:dis_sq(myHero.position, b.position)
+		local w = d / 1000000
+		if not x.helper:is_melee(b) then w = w * self.WEIGHT_TABLE[1].distance else w = w * self.WEIGHT_TABLE[2].distance end
+		return w
+	end,
 
-function x.target_selector:get_target(range)
-	if not targets_cache[range] then
-		targets_cache[range] = {enemies = {}}
+	function(self,a, b)
+		local a_dmg = x.damagelib:calc_dmg(myHero, a, 100) / (1 + a.health)
+		local b_dmg = x.damagelib:calc_dmg(myHero, b, 100) / (1 + b.health)
+		return a_dmg / b_dmg
+	end,
+
+	function(self,a, b)
+		local mod = {1, 1.5, 1.75, 2, 2.5}
+		local pa = mod[self.PRIORITY_LIST[a.champion_name] or 3]
+		local pb = mod[self.PRIORITY_LIST[b.champion_name] or 3]
+		return pa / pb
+	end,
+
+	function(self,a, b)
+		return b.health / a.health
 	end
+	},
 
-	if #targets_cache[range].enemies > 0 then
-		return targets_cache[range].enemies[1].target
-	end
+	init = function(self)
+		self.cache = {}
+	end,
 
-	local enemies = x.objects:get_enemy_champs(range):Where(
-			function(e) return not x.helper:is_invincible(e) end)
+	get_cache = function(self, range)
+		return self.TARGET_CACHE[range]
+	end,
 
-	for i = 1, #enemies do
-		local weight = Weight.new(0, 0, 0, 0)
-		for j = 1, #enemies do
-			if i ~= j then
-				weight = Weight.new(
-						CALC_WEIGHT[1](enemies[i], enemies[j]),
-						CALC_WEIGHT[2](enemies[i], enemies[j]),
-						CALC_WEIGHT[3](enemies[i], enemies[j]),
-						CALC_WEIGHT[4](enemies[i], enemies[j])
-				)
+	refresh_targets = function(self, range)
+		self.TARGET_CACHE[range] = {enemies = {}}
+
+		local enemies = x.objects:get_enemy_champs(range):Where(function(e) return not x.helper:is_invincible(e) end)
+
+		for i = 1, #enemies do
+			local weight = {total = 0}
+			for j = 1, #enemies do
+				if i ~= j then
+					for k, func in ipairs(self.WEIGHT_CACHE) do
+						weight[k] = (weight[k] or 0) + func(enemies[i], enemies[j])
+					end
+				end
 			end
-		end
-		table.insert(targets_cache[range].enemies, {target = enemies[i], weight = weight})
-	end
 
-	table.sort(targets_cache[range].enemies, function(a, b) return a.weight.total > b.weight.total end)
-	return targets_cache[range].enemies[1].target
-end
-
-cheat.register_callback("pre_feature", function()
-	local target = x.target_selector:get_target(9999999)
-	if target ~= nil then
-		features.target_selector:force_target(target.index)
-	else
-		features.target_selector:force_target(-1)
-	end
-end)
-
-cheat.on("renderer.draw", function()
-	local range = 9999999
-	x.target_selector:get_target(range)
-	local cache = targets_cache[range]
-
-	g_render:circle_3d(myHero.position, color:new(0, 255, 0, 55), 55, 3, 55, 1)
-
-	if cache and cache.enemies then
-		for i, data in ipairs(cache.enemies) do
-			if i == 1 then
-				g_render:circle_3d(data.target.position, color:new(255, 0, 0, 55), 100, 3, 55, 1)
-			else
-				g_render:circle_3d(data.target.position, color:new(155, 155, 155, 5), 100, 3, 55, 1)
+			if not self.TARGET_CACHE[range].enemies[i] then
+				self.TARGET_CACHE[range].enemies[i] = {}
 			end
 
-			g_render:text(
-					vec2:new(data.target.position:to_screen().x + 60,
-							data.target.position:to_screen().y - 10),
-					color:new(255, 255, 255),
-					data.weight.total .. "",
-					nil,
-					15
-			)
+			local target = self.TARGET_CACHE[range].enemies[i]
+			target.target = enemies[i]
+			target.weight = target.weight or {}
+			target.weight.distance = weight[1] or 0
+			target.weight.damage = weight[2] or 0
+			target.weight.priority = weight[3] or 0
+			target.weight.health = weight[4] or 0
+			target.weight.total = target.weight.distance + target.weight.damage + target.weight.priority + target.weight.health
 		end
-	end
-end)
+
+		table.sort(self.TARGET_CACHE[range].enemies, function(a, b) return a.weight.total > b.weight.total end)
+	end,
+
+	get_main_target = function(self, range)
+		self:refresh_targets(range)
+		return self.TARGET_CACHE[range].enemies[1].target
+	end,
+
+	get_second_target = function(self, range)
+		self:refresh_targets(range)
+		return self.TARGET_CACHE[range].enemies[2].target
+	end,
+
+	get_targets = function(self, range)
+		self:refresh_targets(range)
+		return self.TARGET_CACHE[range].enemies
+	end,
+})
 
 
 --------------------------------------------------------------------------------
@@ -2083,5 +2087,14 @@ cheat.on("features.run", function()
 	CACHED_ITEMS = {}
 
 end)
+
+local x = class({
+	init = function(self)
+		-- constructor code goes here
+	end,
+
+	VERSION = "1.0",
+	target_selector = target_selector:new()
+})
 
 return x
