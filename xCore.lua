@@ -1,19 +1,12 @@
-x = {}
-x.damagelib = {}
-x.inventory = {}
-x.buffcache = {}
-x.math = {}
-x.helper = {}
-x.database = {}
+local std_math = math
 
+--------------------------------------------------------------------------------
+
+local font = 'corbel'
 local myHero = g_local
-local ColorWhite = color:new(255, 255, 255, 255)
-local ColorDarkGreen = color:new(255, 0, 100, 0)
-local ColorDarkRed = color:new(255, 139, 0, 0)
-local ColorDarkBlue = color:new(255, 0, 0, 139)
-local ColorTransparentBlack = color:new(150, 0, 0, 0)
 
--- create a function for defining classes
+--------------------------------------------------------------------------------
+
 local function class(properties, ...)
 	local cls = {}
 	cls.__index = cls
@@ -39,1875 +32,624 @@ local function class(properties, ...)
 	return cls
 end
 
-
---------------------------------------
--- LINQ --
-
-local function ParseFunc(func)
-	if func == nil then return function(x) return x end end
-	if type(func) == "function" then return func end
-	local index = string.find(func, "=>")
-	local arg = string.sub(func, 1, index - 1)
-	local func = string.sub(func, index + 2, #func)
-	return load(string.format("return function"
-			.. " %s return %s end", arg, func))()
-end
-
-local function Linq(tab)
-	return setmetatable(tab or {}, {__index = table})
-end
-
-function table.Aggregate(source, func, seed)
-	local result = seed or 0
-	local func = ParseFunc(func)
-	for index, value in ipairs(source) do
-		result = func(result, value, index)
-	end
-	return result
-end
-
-function table.All(source, func)
-	local func = ParseFunc(func)
-	for index, value in ipairs(source) do
-		if not func(value, index) then
-			return false
-		end
-	end
-	return true
-end
-
-function table.Any(source, func)
-	local func = ParseFunc(func)
-	for index, value in ipairs(source) do
-		if func(value, index) then
-			return true
-		end
-	end
-	return false
-end
-
-function table.Concat(first, second)
-	local result, index = Linq(), 0
-	for _, value in ipairs(first) do
-		index = index + 1
-		result[index] = value
-	end
-	for _, value in ipairs(second) do
-		index = index + 1
-		result[index] = value
-	end
-	return result
-end
-
-function table.Contains(source, element)
-	for _, value in ipairs(source) do
-		if value == element then
-			return true
-		end
-	end
-	return false
-end
-
-function table.Distinct(source)
-	local result = Linq()
-	local hash, index = {}, 0
-	for _, value in ipairs(source) do
-		if hash[value] == nil then
-			index = index + 1
-			result[index] = value
-			hash[value] = true
-		end
-	end
-	return result
-end
-
-function table.Except(first, second)
-	return first:Where(function(value)
-		return not second:Contains(value) end)
-end
-
-function table.First(source, func)
-	local func = ParseFunc(func)
-	for index, value in ipairs(source) do
-		if func(value, index) then
-			return value
-		end
-	end
-	return nil
-end
-
-function table.ForEach(source, func)
-	for index, value in pairs(source) do
-		func(value, index)
-	end
-end
-
-function table.Last(source, func)
-	local func = ParseFunc(func)
-	for index = #source, 1, -1 do
-		local value = source[index]
-		if func(value, index) then
-			return value
-		end
-	end
-	return nil
-end
-
-function table.Max(source, func)
-	local result = -math.huge
-	local func = ParseFunc(func)
-	for index, value in ipairs(source) do
-		local num = func(value, index)
-		if type(num) == "number" and num >
-				result then result = num end
-	end
-	return result
-end
-
-function table.Min(source, func)
-	local result = math.huge
-	local func = ParseFunc(func)
-	for index, value in ipairs(source) do
-		local num = func(value, index)
-		if type(num) == "number" and num <
-				result then result = num end
-	end
-	return result
-end
-
-function table.Select(source, func)
-	local result = Linq()
-	local func = ParseFunc(func)
-	for index, value in ipairs(source) do
-		result[index] = func(value, index)
-	end
-	return result
-end
-
-function table.RemoveWhere(source, func)
-	local size = #source
-	local func = ParseFunc(func)
-	for index = size, 1, -1 do
-		local value = source[index]
-		if func(value, index) then
-			source:remove(index)
-		end
-	end
-	return size ~= #source
-end
-
-function table.SelectMany(source, selector, collector)
-	local result = Linq()
-	local selector = ParseFunc(selector)
-	local collector = ParseFunc(collector)
-	for index, value in ipairs(source) do
-		local position = #result
-		local values = selector(value, index)
-		for iteration, element in ipairs(values) do
-			local index = position + iteration
-			result[index] = collector(value, element)
-		end
-	end
-	return result
-end
-
-function table.Where(source, func)
-	local result, iteration = Linq(), 0
-	local func = ParseFunc(func)
-	for index, value in ipairs(source) do
-		if func(value, index) then
-			iteration = iteration + 1
-			result[iteration] = value
-		end
-	end
-	return result
-end
-
 --------------------------------------------------------------------------------
 
 -- Math
 --------------------------------------------------------------------------------
 
-x.math = {}
+local math = class({
 
-function x.math:dis(p1, p2)
-	return math.sqrt(self:DistanceSqr(p1, p2))
-end
+	helper = nil,
+	buffcache = nil,
 
-function x.math:dis_sq(p1, p2)
-	local dx, dy = p2.x - p1.x, p2.z - p1.z
-	return dx * dx + dy * dy
-end
+	init = function(self, helper, buff_cache)
+		self.helper = helper
+		self.buffcache = buff_cache
+	end,
 
-function x.math:angle_between(p1, p2, p3)
-	local angle = math.deg(
-			math.atan(p3.z - p1.z, p3.x - p1.x) -
-					math.atan(p2.z - p1.z, p2.x - p1.x))
-	if angle < 0 then angle = angle + 360 end
-	return angle > 180 and 360 - angle or angle
-end
+	dis = function(self, p1, p2)
+		return std_math.sqrt(self:DistanceSqr(p1, p2))
+	end,
 
-function x.math:is_facing(source, unit)
-	local dir = source.direction
-	local p1, p2 = source.origin, unit.origin
-	local p3 = {x = p1.x + dir.x * 2, z = p1.z + dir.z * 2}
-	return x.math:angle_between(p1, p2, p3) < 80
-end
+	dis_sq = function(self, p1, p2)
+		local dx, dy = p2.x - p1.x, p2.z - p1.z
+		return dx * dx + dy * dy
+	end,
 
-function x.math:in_aa_range(unit, raw)
-	local range = x.helper:get_aa_range()
-	local hitbox = unit:get_bounding_radius() or 80
+	angle_between = function(self, p1, p2, p3)
+		local angle = std_math.deg(
+				std_math.atan(p3.z - p1.z, p3.x - p1.x) -
+						std_math.atan(p2.z - p1.z, p2.x - p1.x))
+		if angle < 0 then angle = angle + 360 end
+		return angle > 180 and 360 - angle or angle
+	end,
 
-	if myHero.champion_name == "Aphelios" and unit:is_hero() and x.buffcache:has_buff(unit, "aphelioscalibrumbonusrangedebuff") then
-		range, hitbox = 1800, 0
-	elseif myHero.champion_name == "Caitlyn" and (x.buffcache:has_buff(unit, "caitlynwsight") or x.buffcache:has_buff(unit, "CaitlynEMissile")) then
-		range = range + 650
-	elseif myHero.champ_name == "Zeri" and myHero:get_spell_book():get_spell_slot(e_spell_slot.q):is_ready() then
-		range, hitbox = 825, 0
-	elseif myHero.champ_name == "Samira" and features.buff_cache:is_immobile(unit.index) then
-		range = math.min(650 + 77.5 * (myHero.level - 1), 960)
-	elseif myHero.champ_name == "Karthus" then
-		range = 1035
-	end
-	if raw and not x.helper:is_melee(myHero) then
-		hitbox = 0
-	end
-	local dist = x.math:dis_sq(myHero.position, unit.position)
-	return dist <= (range + hitbox) ^ 2
-end
+	is_facing = function(self, source, unit)
+		local dir = source.direction
+		local angle = self:angle_between(source, unit, dir)
+		return angle < 90
+	end,
 
+	in_aa_range = function(self, unit, raw)
+		local range = self.helper:get_aa_range()
+		local hitbox = unit:get_bounding_radius() or 80
+
+		if myHero.champion_name == "Aphelios" and unit:is_hero() and self.buffcache:has_buff(unit, "aphelioscalibrumbonusrangedebuff") then
+			range, hitbox = 1800, 0
+		elseif myHero.champion_name == "Caitlyn" and (self.buffcache:has_buff(unit, "caitlynwsight") or self.buffcache:has_buff(unit, "CaitlynEMissile")) then
+			range = range + 650
+		elseif myHero.champ_name == "Zeri" and myHero:get_spell_book():get_spell_slot(e_spell_slot.q):is_ready() then
+			range, hitbox = 825, 0
+		elseif myHero.champ_name == "Samira" and features.buff_cache:is_immobile(unit.index) then
+			range = std_math.min(650 + 77.5 * (myHero.level - 1), 960)
+		elseif myHero.champ_name == "Karthus" then
+			range = 1035
+		end
+		if raw and not self.helper:is_melee(myHero) then
+			hitbox = 0
+		end
+		local dist = self:dis_sq(myHero.position, unit.position)
+		return dist <= (range + hitbox) ^ 2
+	end,
+
+})
 
 --------------------------------------------------------------------------------
 
 -- Objects
 --------------------------------------------------------------------------------
 
-x.objects = {}
+local objects = class({
 
-function x.objects:get_enemy_champs(range)
-	return Linq(features.entity_list:get_enemies()):Where(function(unit)
-		return x.helper:is_valid(unit) and (range and x.math:dis_sq(myHero.position, unit.position) <= range ^ 2 or x.math:in_aa_range(unit, true))
-	end)
-end
+	helper = nil,
+	math = nil,
 
---------------------------------------------------------------------------------
--- Functions
--- Usage: x.(feature):(functions)
+	init = function(self, helper, math)
+		self.helper = helper
+		self.math = math
+	end,
 
-
--- Inventory
---------------------------------------------------------------------------------
-
-local CACHED_ITEMS = {}
-
--- returns the slot of the item
-function x.inventory:get_slot(unit, id)
-	local networkID = unit.network_id
-	if CACHED_ITEMS[networkID] == nil then
-		local t = {}
-		for i = 6, 12 do
-			local slot = i
-			local item = unit:get_spell_book():get_spell_slot(slot)
-			if item ~= nil and item:get_name() ~= nil then
-				t[item:get_name()] = i
+	get_enemy_champs = function(self, range)
+		local enemy_champs = {}
+		for i, unit in ipairs(features.entity_list:get_enemies()) do
+			if self.helper:is_valid(unit) and (range and self.math:dis_sq(myHero.position, unit.position) <= range ^ 2 or self.math:in_aa_range(unit, true)) then
+				table.insert(enemy_champs, unit)
 			end
 		end
-		CACHED_ITEMS[networkID] = t
-	end
-	return CACHED_ITEMS[networkID][id]
-end
+		return enemy_champs
+	end,
 
--- returns true if the unit has the item
-function x.inventory:has_item(unit, id)
-	return inventory:get_slot(unit, id) ~= nil
-end
+
+})
 
 --------------------------------------------------------------------------------
-
 
 -- Buffs
 --------------------------------------------------------------------------------
+local buffcache = class({
 
--- returns a c_buff object
-function x.buffcache:get_buff(unit, name)
-	return features.buff_cache:get_buff(unit.index, name)
-end
+	get_buff = function(self, unit, name)
+		return features.buff_cache:get_buff(unit.index, name)
+	end,
 
--- returns the amount of stacks of a buff
-function x.buffcache:get_amount(unit, name)
-	return features.buff_cache:get_buff(unit.index, name).amount
-end
+	get_amount = function(self, unit, name)
+		return features.buff_cache:get_buff(unit.index, name).amount
+	end,
 
--- returns the duration of a buff
-function x.buffcache:get_duration(unit, name)
-	local buff = features.buff_cache:get_buff(unit.index, name)
-	return buff.end_time - buff.start_time
-end
+	get_duration = function(self, unit, name)
+		local buff = features.buff_cache:get_buff(unit.index, name)
+		return buff.end_time - buff.start_time
+	end,
 
--- returns true if the unit has the buff
-function x.buffcache:has_buff(unit, name)
-	return features.buff_cache:get_buff(unit.index, name)
-end
+	has_buff = function(self, unit, name)
+		return features.buff_cache:get_buff(unit.index, name)
+	end,
+
+})
 
 --------------------------------------------------------------------------------
 
 -- Helper
 --------------------------------------------------------------------------------
 
-x.database.HYBRID_RANGED = {"Elise", "Gnar", "Jayce", "Kayle", "Nidalee", "Zeri"}
+local helper = class({
 
-x.database.INVINCIBILITY_BUFFS= {
-	["aatroxpassivedeath"] = true, ["FioraW"] = true,
-	["JaxCounterStrike"] = true, ["JudicatorIntervention"] = true,
-	["KarthusDeathDefiedBuff"] = true, ["kindredrnodeathbuff"] = false,
-	["KogMawIcathianSurprise"] = true, ["SamiraW"] = true, ["ShenWBuff"] = true,
-	["TaricR"] = true, ["UndyingRage"] = false, ["VladimirSanguinePool"] = true,
-	["ChronoShift"] = false, ["chronorevive"] = true, ["zhonyasringshield"] = true
-}
+	HYBRID_RANGED = {"Elise", "Gnar", "Jayce", "Kayle", "Nidalee", "Zeri"},
+	INVINCIBILITY_BUFFS= {
+		["aatroxpassivedeath"] = true, ["FioraW"] = true,
+		["JaxCounterStrike"] = true, ["JudicatorIntervention"] = true,
+		["KarthusDeathDefiedBuff"] = true, ["kindredrnodeathbuff"] = false,
+		["KogMawIcathianSurprise"] = true, ["SamiraW"] = true, ["ShenWBuff"] = true,
+		["TaricR"] = true, ["UndyingRage"] = false, ["VladimirSanguinePool"] = true,
+		["ChronoShift"] = false, ["chronorevive"] = true, ["zhonyasringshield"] = true
+	},
 
--- returns true if the unit has a "melee" attack range
-function x.helper:is_melee(unit)
-	return unit.attack_range < 300
-			and x.database.HYBRID_RANGED[unit.champion_name] ~= nil
-end
+	buffcache = nil,
 
-function x.helper:get_aa_range(unit)
-	local unit = unit or myHero
-	if (unit.champion_name == "Karthus") then
-		return 1035 + unit:get_bounding_radius()
+	init = function(self)
+		self.buffcache = buffcache(self)
+	end,
+
+	is_melee = function(self, unit)
+		return unit.attack_range < 300
+				and self.HYBRID_RANGED[unit.champion_name] ~= nil
+	end,
+
+	get_aa_range = function(self, unit)
+		local unit = unit or myHero
+		if (unit.champion_name == "Karthus") then
+			return 1035 + unit:get_bounding_radius()
+		end
+		return unit.attack_range + unit:get_bounding_radius()
+	end,
+
+	is_invincible = function(self, unit)
+		for _, buff in ipairs(features.buff_cache:get_all_buffs(unit.index)) do
+			if buff and self.buffcache:get_duration(buff) > 0 and buff:get_amount() > 0 then
+				local invincibility_buff = self.INVINCIBILITY_BUFFS[buff.name]
+				if invincibility_buff ~= nil then
+					if invincibility_buff == false and unit.health / unit.max_health < 0.05 then
+						return true
+					elseif invincibility_buff == true then
+						return true
+					end
+				end
+			end
+		end
+		return false
+	end,
+
+	get_percent_hp = function(self, unit)
+		return 100 * unit.health / unit.max_health
+	end,
+
+	get_percent_missing_hp = function(self, unit)
+		return (1 - (unit.health / unit.max_health)) * 100
+	end,
+
+	get_missing_hp = function(self, unit)
+		return (unit.max_health - unit.health)
+	end,
+
+	is_alive = function(self, unit)
+		return unit and not unit:is_invalid_object() and unit:is_visible()
+				and unit:is_alive() and unit:is_targetable()
+	end,
+
+	is_valid = function(self, unit)
+		return unit and not unit:is_invalid_object() and unit:is_visible()
+				and unit:is_alive() and unit:is_targetable()
+	end,
+
+	get_latency = function(self)
+		return features.orbwalker:get_ping() / 1000
 	end
-	return unit.attack_range + unit:get_bounding_radius()
-end
 
-function x.helper:is_invincible(unit)
-	return Linq(unit.buffs):Any(function(b)
-		if not b or x.buffcache:get_duration(b) <= 0 or
-				b:get_amount() <= 0 then return false end
-		local buff = x.database.INVINCIBILITY_BUFFS[b.name]
-		if buff == nil then return false end
-		return buff == false and unit.health /
-				unit.max_health < 0.05 or buff == true
-	end)
-end
+})
 
-function x.helper:get_percent_hp(unit)
-	return 100 * unit.health / unit.max_health
-end
-
-function x.helper:get_percent_missing_hp(unit)
-	return (1 - (unit.health / unit.max_health)) * 100
-end
-
-function x.helper:get_missing_hp(unit)
-	return (unit.max_health - unit.health)
-end
-
--- returns true if the unit is alive and not in sion passive
-function x.helper:is_alive(index)
-	local obj = features.entity_list:get_by_index(index)
-	return (not x.buffcache:has_buff(obj, "sionpassivezombie") and not not x.buffcache:has_buff(obj, "Rebirth")) and obj:is_alive()
-end
-
-function x.helper:is_valid(unit)
-	return unit and not unit:is_invalid_object() and unit:is_visible()
-			and unit:is_alive() and unit:is_targetable()
-end
-
-function x.helper:get_latency()
-	return features.orbwalker:get_ping() / 1000
-end
 --------------------------------------------------------------------------------
 
 -- Damage Library
 --------------------------------------------------------------------------------
 
-x.database.CHAMP_PASSIVES = {
-	Aatrox = function(args) local source = args.source -- 12.20
-		if not x.buffcache:has_buff(source, "aatroxpassiveready") then return end
-		args.raw_physical = args.raw_physical + (4.59 + 0.41
-				* source.level) * 0.01 * args.unit.max_health
-	end,
-	Akali = function(args) local source = args.source -- 12.20
-		if not x.buffcache:has_buff(source, "akalishadowstate") then return end
-		local mod = ({35, 38, 41, 44, 47, 50, 53, 62, 71, 80,
-					  89, 98, 107, 122, 137, 152, 167, 182})[source.level]
-		args.raw_magical = args.raw_magical + mod + 0.55 *
-				source:get_ability_power() + 0.6 * source:get_bonus_attack_damage()
-	end,
-	Akshan = function(args) local source = args.source -- 12.20
-		local buff = x.buffcache:get_buff(args.unit, "AkshanPassiveDebuff")
-		if not buff or buff:get_amount() ~= 2 then return end
-		local mod = ({10, 15, 20, 25, 30, 35, 40, 45, 55, 65,
-					  75, 85, 95, 105, 120, 135, 150, 165})[source.level]
-		args.raw_magical = args.raw_magical + mod
-	end,
-	Ashe = function(args) local source = args.source -- 12.20
-		local totalDmg = source:get_attack_damage()
-		local slowed = x.buffcache:has_buff(args.unit, "ashepassiveslow")
-		local mod = 0.0075 + (source:has_item(3031) and 0.0035 or 0)
-		local percent = slowed and 0.1 + source.crit_chance * mod or 0
-		args.raw_physical = args.raw_physical + percent * totalDmg
-		if not x.buffcache:has_buff(source, "AsheQAttack") then return end
-		local lvl = source:get_spell_book():get_spell_slot(e_spell_slot.q).level
-		args.raw_physical = args.raw_physical * (1 + 0.05 * lvl)
-	end,
-	Bard = function(args) local source = args.source -- 12.20
-		if not x.buffcache:has_buff(source, "bardpspiritammocount") then return end
-		local chimes = x.buffcache:get_buff(source, "bardpdisplaychimecount")
-		if not chimes or chimes:get_amount() <= 0 then return end
-		args.raw_magical = args.raw_magical + (14 * math.floor(
-				chimes:get_amount() / 5)) + 35 + 0.3 * source:get_ability_power()
-	end,
-	Blitzcrank = function(args) local source = args.source -- 12.20
-		if not x.buffcache:has_buff(source, "PowerFist") then return end
-		args.raw_physical = args.raw_physical + 1.5 *
-				source:get_ability_power() + 2.5 * source:get_attack_damage()
-	end,
-	Braum = function(args) local source = args.source -- 12.20
-		local buff = x.buffcache:get_buff(args.unit, "BraumMark")
-		if not buff or buff:get_amount() ~= 3 then return end
-		args.raw_magical = args.raw_magical + 16 + 10 * source.level
-	end,
-	Caitlyn = function(args) local source = args.source -- 12.20
-		if not x.buffcache:has_buff(source, "caitlynpassivedriver") then return end
-		local bonus = 1.3125 + (source:has_item(3031) and 0.2625 or 0)
-		local mod = ({1.1, 1.1, 1.1, 1.1, 1.1, 1.1, 1.15, 1.15, 1.15,
-					  1.15, 1.15, 1.15, 1.2, 1.2, 1.2, 1.2, 1.2, 1.2})[source.level]
-		args.raw_physical = args.raw_physical + (mod + (bonus * 0.01 *
-				source.crit_chance)) * source:get_attack_damage()
-	end,
-	Camille = function(args) local source = args.source -- 12.20
-		local lvl = source:get_spell_book():get_spell_slot(e_spell_slot.q).level
-		if x.buffcache:has_buff(source, "CamilleQ") then
-			args.raw_physical = args.raw_physical + (0.15 +
-					0.05 * lvl) * source:get_attack_damage()
-		elseif x.buffcache:has_buff(source, "CamilleQ2") then
-			args.true_damage = args.true_damage + math.min(
-					0.36 + 0.04 * source.level, 1) * (0.3 +
-					0.1 * lvl) * source:get_attack_damage()
-		end
-	end,
-	Chogath = function(args) local source = args.source -- 12.20
-		if not x.buffcache:has_buff(source, "VorpalSpikes") then return end
-		local lvl = source:get_spell_book():get_spell_slot(e_spell_slot.e).level
-		args.raw_magical = args.raw_magical + 10 + 12 * lvl + 0.3 *
-				source:get_ability_power() + 0.03 * args.unit.max_health
-	end,
-	Darius = function(args) local source = args.source -- 12.20
-		if not x.buffcache:has_buff(source, "DariusNoxianTacticsONH") then return end
-		local lvl = source:get_spell_book():get_spell_slot(e_spell_slot.w).level
-		args.raw_physical = args.raw_physical + (0.35 +
-				0.05 * lvl) * source:get_attack_damage()
-	end,
-	Diana = function(args) local source = args.source -- 12.20
-		local buff = x.buffcache:get_buff(source, "dianapassivemarker")
-		if not buff or buff:get_amount() ~= 2 then return end
-		local mod = ({20, 25, 30, 35, 40, 45, 55, 65, 75,
-					  85, 95, 110, 125, 140, 155, 170, 195, 220})[source.level]
-		args.raw_magical = args.raw_magical + mod + 0.5 * source:get_ability_power()
-	end,
-	Draven = function(args) local source = args.source -- 12.20
-		if not x.buffcache:has_buff(source, "DravenSpinningAttack") then return end
-		local lvl = source:get_spell_book():get_spell_slot(e_spell_slot.q).level
-		args.raw_physical = args.raw_physical + 35 + 5 * lvl +
-				(0.65 + 0.1 * lvl) * source:get_bonus_attack_damage()
-	end,
-	DrMundo = function(args) local source = args.source
-		if not x.buffcache:has_buff(source, "DrMundoE") then return end
-		-- TODO: Calculations
-	end,
-	Ekko = function(args) local source = args.source -- 12.20
-		local buff = x.buffcache:get_buff(args.unit, "ekkostacks")
-		if buff ~= nil and buff:get_amount() == 2 then
-			local mod = ({30, 40, 50, 60, 70, 80, 85, 90, 95, 100,
-						  105, 110, 115, 120, 125, 130, 135, 140})[source.level]
-			args.raw_magical = args.raw_magical + mod + 0.9 * source:get_ability_power()
-		end
-		if x.buffcache:has_buff(source, "ekkoeattackbuff") then
-			local lvl = source:get_spell_book():get_spell_slot(e_spell_slot.e).level
-			args.raw_magical = args.raw_magical + 25 +
-					25 * lvl + 0.4 * source:get_ability_power()
-		end
-	end,
-	Fizz = function(args) local source = args.source -- 12.20
-		if not x.buffcache:has_buff(source, "FizzW") then return end
-		local lvl = source:get_spell_book():get_spell_slot(e_spell_slot.w).level
-		args.raw_magical = args.raw_magical + 30 +
-				20 * lvl + 0.5 * source:get_ability_power()
-	end,
-	Galio = function(args) local source = args.source
-		if not x.buffcache:has_buff(source, "galiopassivebuff") then return end
-		-- TODO: Calculations
-	end,
-	Garen = function(args) local source = args.source -- 12.20
-		if not x.buffcache:has_buff(source, "GarenQ") then return end
-		local lvl = source:get_spell_book():get_spell_slot(e_spell_slot.q).level
-		args.raw_physical = args.raw_physical + 30 *
-				lvl + 0.5 * source:get_attack_damage()
-	end,
-	Gnar = function(args) local source = args.source -- 12.20
-		local buff = x.buffcache:get_buff(args.unit, "gnarwproc")
-		if not buff or buff:get_amount() ~= 2 then return end
-		local lvl = source:get_spell_book():get_spell_slot(e_spell_slot.w).level
-		args.raw_magical = args.raw_magical - 10 + 10 * lvl + (0.04 +
-				0.02 * lvl) * args.unit.max_health + source:get_ability_power()
-	end,
-	Gragas = function(args) local source = args.source -- 12.20
-		if not x.buffcache:has_buff(source, "gragaswattackbuff") then return end
-		local lvl = source:get_spell_book():get_spell_slot(e_spell_slot.w).level
-		args.raw_magical = args.raw_magical - 10 + 30 * lvl + 0.07
-				* args.unit.max_health + 0.7 * source:get_ability_power()
-	end,
-	Gwen = function(args) local source = args.source -- 12.20
-		args.raw_magical = args.raw_magical + (0.01 + 0.008 *
-				0.01 * source:get_ability_power()) * args.unit.max_health
-		if args.unit.health / args.unit.max_health <= 0.4 then
-			args.raw_magical = args.raw_magical + 6.71 + 1.29 * source.level
-		end
-	end,
-	Illaoi = function(args) local source = args.source -- 12.20
-		if not x.buffcache:has_buff(source, "IllaoiW") then return end
-		local lvl = source:get_spell_book():get_spell_slot(e_spell_slot.w).level
-		local damage = math.min(300, math.max(10 + 10 * lvl,
-				args.unit.max_health * (0.025 + 0.005 * lvl
-						+ 0.0004 * source:get_attack_damage())))
-		args.raw_physical = args.raw_physical + damage
-	end,
-	Irelia = function(args) local source = args.source -- 12.20
-		local buff = x.buffcache:get_buff(source, "ireliapassivestacks")
-		if not buff or buff:get_amount() ~= 4 then return end
-		args.raw_magical = args.raw_magical + 7 + 3 *
-				source.level + 0.2 * source:get_bonus_attack_damage()
-	end,
-	JarvanIV = function(args) local source = args.source -- 12.20
-		if not x.buffcache:has_buff(args.unit, "jarvanivmartialcadencecheck") then return end
-		local damage = math.min(400, math.max(20, 0.08 * args.unit.health))
-		args.raw_physical = args.raw_physical + damage
-	end,
-	Jax = function(args) local source = args.source -- 12.20
-		if x.buffcache:has_buff(source, "JaxEmpowerTwo") then
-			local lvl = source:get_spell_book():get_spell_slot(e_spell_slot.w).level
-			args.raw_magical = args.raw_magical + 15 +
-					35 * lvl + 0.6 * source:get_ability_power()
-		end
-		if x.buffcache:has_buff(source, "JaxRelentlessAssault") then
-			local lvl = source:get_spell_book():get_spell_slot(e_spell_slot.r).level
-			args.raw_magical = args.raw_magical + 60 +
-					40 * lvl + 0.7 * source:get_ability_power()
-		end
-	end,
-	Jayce = function(args) local source = args.source -- 12.20
-		if x.buffcache:has_buff(source, "JaycePassiveMeleeAttack") then
-			local mod = ({25, 25, 25, 25, 25, 65,
-						  65, 65, 65, 65, 105, 105, 105, 105,
-						  105, 145, 145, 145})[source.level]
-			args.raw_magical = args.raw_magical + mod
-					+ 0.25 * source:get_bonus_attack_damage()
-		end
-		if x.buffcache:has_buff(source, "HyperChargeBuff") then
-			local lvl = source:get_spell_book():get_spell_slot(e_spell_slot.w).level
-			local mod = ({0.7, 0.78, 0.86, 0.94, 1.02, 1.1})[lvl]
-			arga.raw_physical = mod * source:get_attack_damage()
-		end
-	end,
-	Jhin = function(args) local source = args.source -- 12.20
-		if not x.buffcache:has_buff(source, "jhinpassiveattackbuff") then return end
-		local missingHealth, mod = args.unit.max_health - args.unit.health,
-		source.level < 6 and 0.15 or source.level < 11 and 0.2 or 0.25
-		args.raw_physical = args.raw_physical + mod * missingHealth
-	end,
-	Jinx = function(args) local source = args.source -- 12.20
-		if not x.buffcache:has_buff(source, "JinxQ") then return end
-		args.raw_physical = args.raw_physical
-				+ source:get_attack_damage() * 0.1
-	end,
-	Kaisa = function(args) local source = args.source -- 12.20
-		local buff = x.buffcache:get_buff(args.unit, "kaisapassivemarker")
-		local count = buff ~= nil and buff:get_amount() or 0
-		local damage = ({5, 5, 8, 8, 8, 11, 11, 11, 14, 14,
-						 17, 17, 17, 20, 20, 20, 23, 23})[source.level] +
-				({1, 1, 1, 3.75, 3.75, 3.75, 3.75, 6.5, 6.5, 6.5, 6.5,
-				  9.25, 9.25, 9.25, 9.25, 12, 12, 12})[source.level] * count
-				+ (0.125 + 0.025 * (count + 1)) * source:get_ability_power()
-		if count == 4 then damage = damage +
-				(0.15 + (0.06 * source:get_ability_power() / 100)) *
-						(args.unit.max_health - args.unit.health) end
-		args.raw_magical = args.raw_magical + damage
-	end,
-	Kassadin = function(args) local source = args.source -- 12.20
-		local lvl = source:get_spell_book():get_spell_slot(e_spell_slot.w).level
-		if x.buffcache:has_buff(source, "NetherBlade") then
-			args.raw_magical = args.raw_magical + 25 +
-					25 * lvl + 0.8 * source:get_ability_power()
-		elseif lvl > 0 then
-			args.raw_magical = args.raw_magical +
-					20 + 0.1 * source:get_ability_power()
-		end
-	end,
-	Kayle = function(args) local source = args.source -- 12.20
-		local lvl = source:get_spell_book():get_spell_slot(e_spell_slot.e).level
-		if lvl > 0 then args.raw_magical = args.raw_magical
-				+ 10 + 5 * lvl + 0.2 * source:get_ability_power()
-				+ 0.1 * source:get_bonus_attack_damage() end
-		if x.buffcache:has_buff(source, "JudicatorRighteousFury") then
-			args.raw_magical = args.raw_magical + (7.5 + 0.5 * lvl
-					+ source:get_ability_power() * 0.01 * 1.5) * 0.01 *
-					(args.unit.max_health - args.unit.health)
-		end
-	end,
-	Kennen = function(args) local source = args.source -- 12.20
-		if not x.buffcache:has_buff(source, "kennendoublestrikelive") then return end
-		local lvl = source:get_spell_book():get_spell_slot(e_spell_slot.w).level
-		args.raw_magical = args.raw_magical + 25 + 10 * lvl + (0.7 + 0.1 *
-				lvl) * source:get_bonus_attack_damage() + 0.35 * source:get_ability_power()
-	end,
-	KogMaw = function(args) local source = args.source -- 12.20
-		if not x.buffcache:has_buff(source, "KogMawBioArcaneBarrage") then return end
-		local lvl = source:get_spell_book():get_spell_slot(e_spell_slot.w).level
-		args.raw_magical = args.raw_magical + math.min(100, (0.0275 + 0.0075
-				* lvl + 0.0001 * source:get_ability_power()) * args.unit.max_health)
-	end,
-	Leona = function(args) local source = args.source -- 12.20
-		if not x.buffcache:has_buff(source, "LeonaSolarFlare") then return end
-		local lvl = source:get_spell_book():get_spell_slot(e_spell_slot.q).level
-		args.raw_magical = args.raw_magical - 15 +
-				25 * lvl + 0.3 * source:get_ability_power()
-	end,
-	Lux = function(args) local source = args.source -- 12.20
-		if not x.buffcache:has_buff(args.unit, "LuxIlluminatingFraulein") then return end
-		args.raw_magical = args.raw_magical + 10 + 10 *
-				source.level + 0.2 * source:get_ability_power()
-	end,
-	Malphite = function(args) local source = args.source -- 12.20
-		if not x.buffcache:has_buff(source, "MalphiteCleave") then return end
-		local lvl = source:get_spell_book():get_spell_slot(e_spell_slot.w).level
-		args.raw_physical = args.raw_physical + 15 + 15 * lvl
-				+ 0.2 * source:get_ability_power() + 0.1 * source.armor
-	end,
-	MasterYi = function(args) local source = args.source -- 12.20
-		if not x.buffcache:has_buff(source, "wujustylesuperchargedvisual") then return end
-		local lvl = source:get_spell_book():get_spell_slot(e_spell_slot.e).level
-		args.true_damage = args.true_damage + 25 + 5 *
-				lvl + 0.3 * source:get_bonus_attack_damage()
-	end,
-	MissFortune = function(args)
-		-- TODO
-	end,
-	Mordekaiser = function(args) local source = args.source -- 12.20
-		args.raw_magical = args.raw_magical + 0.4 * source:get_ability_power()
-	end,
-	Nami = function(args) local source = args.source -- 12.20
-		if not x.buffcache:has_buff(source, "NamiE") then return end
-		local lvl = source:get_spell_book():get_spell_slot(e_spell_slot.e).level
-		args.raw_magical = args.raw_magical + 10 +
-				15 * lvl + 0.2 * source:get_ability_power()
-	end,
-	Nasus = function(args) local source = args.source -- 12.20
-		if not x.buffcache:has_buff(source, "NasusQ") then return end
-		local buff = x.buffcache:get_buff(source, "NasusQStacks")
-		local stacks = buff ~= nil and buff:get_amount() or 0
-		local lvl = source:get_spell_book():get_spell_slot(e_spell_slot.q).level
-		args.raw_physical = args.raw_physical + 10 + 20 * lvl + stacks
-	end,
-	Nautilus = function(args) local source = args.source -- 12.20
-		if x.buffcache:has_buff(args.unit, "nautiluspassivecheck") then return end
-		args.raw_physical = args.raw_physical + 2 + 6 * source.level
-	end,
-	Nidalee = function(args) local source = args.source -- 12.20
-		if not x.buffcache:has_buff(source, "Takedown") then return end
-		local lvl = source:get_spell_book():get_spell_slot(e_spell_slot.q).level
-		args.raw_magical = args.raw_magical + (-20 + 25 *
-				lvl + 0.75 * source:get_attack_damage() + 0.4 *
-				source:get_ability_power()) * ((args.unit.max_health -
-				args.unit.health) / args.unit.max_health + 1)
-		if x.buffcache:has_buff(args.unit, "NidaleePassiveHunted") then
-			args.raw_magical = args.raw_magical * 1.4 end
-		args.raw_physical = 0
-	end,
-	Neeko = function(args) local source = args.source -- 12.20
-		if not x.buffcache:has_buff(source, "neekowpassiveready") then return end
-		local lvl = source:get_spell_book():get_spell_slot(e_spell_slot.w).level
-		args.raw_magical = args.raw_magical + 20 +
-				30 * lvl + 0.6 * source:get_ability_power()
-	end,
-	Nocturne = function(args) local source = args.source -- 12.20
-		if not x.buffcache:has_buff(source, "nocturneumbrablades") then return end
-		args.raw_physical = args.raw_physical + 0.2 * source:get_attack_damage()
-	end,
-	Orianna = function(args) local source = args.source -- 12.20
-		args.raw_magical = args.raw_magical + 2 + math.ceil(
-				source.level / 3) * 8 + 0.15 * source:get_ability_power()
-		local buff = x.buffcache:get_buff(source, "orianapowerdaggerdisplay")
-		if not buff or buff:get_amount() == 0 then return end
-		args.raw_magical = raw.raw_magical * (1 + 0.2 * buff:get_amount())
-	end,
-	Poppy = function(args) local source = args.source -- 12.20
-		if not x.buffcache:has_buff(source, "poppypassivebuff") then return end
-		args.raw_magical = args.raw_magical + 10.59 + 9.41 * source.level
-	end,
-	Quinn = function(args) local source = args.source -- 12.20
-		if not x.buffcache:has_buff(args.unit, "QuinnW") then return end
-		args.raw_physical = args.raw_physical + 5 + 5 * source.level +
-				(0.14 + 0.02 * source.level) * source:get_attack_damage()
-	end,
-	RekSai = function(args) local source = args.source -- 12.20
-		if not x.buffcache:has_buff(source, "RekSaiQ") then return end
-		local lvl = source:get_spell_book():get_spell_slot(e_spell_slot.q).level
-		args.raw_physical = args.raw_physical + 15 + 6 *
-				lvl + 0.5 * source:get_bonus_attack_damage()
-	end,
-	Rell = function(args) local source = args.source -- 12.20
-		args.raw_magical = args.raw_magical + 7.53 + 0.47 * source.level
-		if not x.buffcache:has_buff(source, "RellWEmpoweredAttack") then return end
-		local lvl = source:get_spell_book():get_spell_slot(e_spell_slot.w).level
-		args.raw_magical = args.raw_magical - 5 +
-				15 * lvl + 0.4 * source:get_ability_power()
-	end,
-	Rengar = function(args) local source = args.source -- 12.20
-		local lvl = source:get_spell_book():get_spell_slot(e_spell_slot.q).level
-		if x.buffcache:has_buff(source, "RengarQ") then
-			args.raw_physical = args.raw_physical + 30 * lvl +
-					(-0.05 + 0.05 * lvl) * source:get_attack_damage()
-		elseif x.buffcache:has_buff(source, "RengarQEmp") then
-			local mod = ({30, 45, 60, 75, 90, 105,
-						  120, 135, 145, 155, 165, 175, 185,
-						  195, 205, 215, 225, 235})[source.level]
+local damagelib = class({
+
+	helper = nil,
+	math = nil,
+	database = nil,
+	buffcache = nil,
+
+	CHAMP_PASSIVES = {
+		Jinx = function(self, args) local source = args.source -- 13.7
+			if not self.buffcache:has_buff(source, "JinxQ") then return end
+			args.raw_physical = args.raw_physical
+					+ source:get_attack_damage() * 0.1
+		end,
+	},
+	ITEM_PASSIVES = { -- TODO: wait for inventory api to be added.
+		[3153] = function(self, args) local source = args.source -- Blade of the Ruined King
+			local mod = self.functions.helper:is_melee(source) and 0.12 or 0.08
+			args.raw_physical = args.raw_physical + std_math.min(
+					60, std_math.max(15, mod * args.unit.health))
+		end,
+		[3742] = function(self, args) local source = args.source -- Dead Man's Plate
+			local stacks = std_math.min(100, 0) -- TODO
+			args.raw_physical = args.raw_physical + 0.4 * stacks
+					+ 0.01 * stacks * source:get_attack_damage()
+		end,
+		[1056] = function(self, args) -- Doran's Ring
+			args.raw_physical = args.raw_physical + 5
+		end,
+		[1054] = function(self, args) -- Doran's Shield
+			args.raw_physical = args.raw_physical + 5
+		end,
+		[3124] = function(self, args) local source = args.source -- Guinsoo's Rageblade
 			args.raw_physical = args.raw_physical +
-					mod + 0.4 * source:get_attack_damage()
+					std_math.min(200, source.crit_chance * 200)
+		end,
+		[3004] = function(self, args) -- Manamune
+			args.raw_physical = args.raw_physical
+					+ args.source.max_mana * 0.025
+		end,
+		[3042] = function(self, args) -- Muramana
+			args.raw_physical = args.raw_physical
+					+ args.source.max_mana * 0.025
+		end,
+		[3115] = function(self, args) -- Nashor's Tooth
+			args.raw_magical = args.raw_magical + 15
+					+ 0.2 * args.source:get_ability_power()
+		end,
+		[6670] = function(self, args) -- Noonquiver
+			args.raw_physical = args.raw_physical + 20
+		end,
+		[6677] = function(self, args) local source = args.source -- Rageknife
+			args.raw_physical = args.raw_physical +
+					std_math.min(175, 175 * source.crit_chance)
+		end,
+		[1043] = function(self, args) -- Recurve Bow
+			args.raw_physical = args.raw_physical + 15
+		end,
+		[3070] = function(self, args) -- Tear of the Goddess
+			args.raw_physical = args.raw_physical + 5
+		end,
+		[3748] = function(self, args) local source = args.source -- Titanic Hydra
+			local mod = self.functions.helper:is_melee(args.source) and {4, 0.015} or {3, 0.01125}
+			local damage = mod[1] + mod[2] * args.source.max_health
+			args.raw_physical = args.raw_physical + damage
+		end,
+		[3091] = function(self, args) local source = args.source -- Wit's End
+			local damage = ({15, 15, 15, 15, 15, 15, 15, 15, 25, 35,
+							 45, 55, 65, 75, 76.25, 77.5, 78.75, 80})[source.level]
+			args.raw_magical = args.raw_magical + damage
 		end
+	},
+
+
+	init = function(self, helper, math, database, buffcache)
+		self.helper = helper
+		self.math = math
+		self.database = database
+		self.buffcache = buffcache
 	end,
-	Riven = function(args) local source = args.source -- 12.20
-		if not x.buffcache:has_buff(source, "RivenPassiveAABoost") then return end
-		args.raw_physical = args.raw_physical + (source.level >= 6 and 0.36 + 0.06 *
-				math.floor((source.level - 6) / 3) or 0.3) * source:get_attack_damage()
-	end,
-	Rumble = function(args) local source = args.source -- 12.20
-		if not x.buffcache:has_buff(source, "RumbleOverheat") then return end
-		args.raw_magical = args.raw_magical + 2.94 + 2.06 * source.level
-				+ 0.25 * source:get_ability_power() + 0.06 * args.unit.max_health
-	end,
-	Sett = function(args) local source = args.source -- 12.20
-		if not x.buffcache:has_buff(source, "SettQ") then return end
-		local lvl = source:get_spell_book():get_spell_slot(e_spell_slot.q).level
-		args.raw_physical = args.raw_physical +
-				10 * lvl + (0.01 + (0.005 + 0.005 * lvl) * 0.01 *
-				source:get_attack_damage()) * args.unit.max_health
-	end,
-	Shaco = function(args) local source = args.source -- 12.20
-		local turned = not Geometry:IsFacing(args.unit, source)
-		if turned then args.raw_physical = args.raw_physical + 19.12 +
-				0.88 * source.level + 0.15 * source:get_bonus_attack_damage() end
-		if not x.buffcache:has_buff(source, "Deceive") then return end
-		local lvl = source:get_spell_book():get_spell_slot(e_spell_slot.q).level
-		args.raw_physical = args.raw_physical + 15 +
-				10 * lvl + 0.5 * source:get_bonus_attack_damage()
-		local mod = 0.3 + (source:has_item(3031) and 0.35 or 0)
-		if turned then args.raw_physical = args.raw_physical
-				+ mod * source:get_attack_damage() end
-	end,
-	Seraphine = function(args)
-		-- TODO
-	end,
-	Shen = function(args) local source = args.source -- 12.20
-		local lvl = source:get_spell_book():get_spell_slot(e_spell_slot.q).level
-		if x.buffcache:has_buff(source, "shenqbuffweak") then
-			args.raw_magical = args.raw_magical + 4 + 6 * math.ceil(
-					source.level / 3) + (0.015 + 0.005 * lvl + 0.015 *
-					source:get_ability_power() / 100) * args.unit.max_health
-		elseif x.buffcache:has_buff(source, "shenqbuffstrong") then
-			args.raw_magical = args.raw_magical + 4 + 6 * math.ceil(
-					source.level / 3) + (0.035 + 0.005 * lvl + 0.02 *
-					source:get_ability_power() / 100) * args.unit.max_health
+
+	check_for_passives = function(self, args)
+		local source = args.source
+
+		local buff = self.buffcache:get_buff(source, "6672buff") -- Kraken Slayer
+		if buff and buff:get_amount() == 3 then
+			args.true_damage = args.true_damage + 50 +
+					0.4 * source:get_bonus_attack_damage()
 		end
-	end,
-	Shyvana = function(args) local source = args.source -- 12.20
-		local lvl = source:get_spell_book():get_spell_slot(e_spell_slot.e).level
-		if x.buffcache:has_buff(source, "ShyvanaDoubleAttack") then
-			args.raw_physical = args.raw_physical + (0.05 + 0.15 * lvl) *
-					source:get_attack_damage() + 0.25 * source:get_ability_power()
+
+		if self.buffcache:has_buff(source, "3504Buff") then -- Ardent Censer
+			args.raw_magical = args.raw_magical + 4.12 + 0.88 * args.unit.level
 		end
-		if x.buffcache:has_buff(args.unit, "ShyvanaFireballMissile") then
-			args.raw_magical = args.raw_magical + 0.035 * args.unit.max_health
+
+		if self.buffcache:has_buff(source, "6632buff") then -- Divine Sunderer
+			args.raw_physical = args.raw_physical + 1.25 *
+					source:get_attack_damage() + (self.functions.helper:is_melee(source)
+					and 0.06 or 0.03) * args.unit.max_health
 		end
-	end,
-	Skarner = function(args) local source = args.source -- 12.20
-		if not x.buffcache:has_buff(source, "skarnerpassivebuff") then return end
-		local lvl = source:get_spell_book():get_spell_slot(e_spell_slot.e).level
-		args.raw_physical = args.raw_physical + 10 + 20 * lvl
-	end,
-	Sona = function(args) local source = args.source -- 12.20
-		if x.buffcache:has_buff(source, "SonaQProcAttacker") then
-			local lvl = source:get_spell_book():get_spell_slot(e_spell_slot.q).level
-			args.raw_magical = args.raw_magical + 5 +
-					5 * lvl + 0.2 * source:get_ability_power()
+
+		if self.buffcache:has_buff(source, "3508buff") then -- Essence Reaver
+			args.raw_physical = args.raw_physical + 0.4 *
+					source:get_bonus_attack_damage() + source:get_attack_damage()
 		end
-	end,
-	Sylas = function(args) local source = args.source -- 12.20
-		if not x.buffcache:has_buff(source, "SylasPassiveAttack") then return end
-		args.raw_magical, args.raw_physical = source:get_ability_power()
-				* 0.25 + source:get_attack_damage() * 1.3, 0
-	end,
-	TahmKench = function(args) local source = args.source -- 12.20
-		args.raw_magical = args.raw_magical + 4.94 + 3.06 * source.level
-				+ 0.03 * (source.max_health - (640 + 109 * source.level))
-	end,
-	Taric = function(args) local source = args.source -- 12.20
-		if not x.buffcache:has_buff(source, "taricgemcraftbuff") then return end
-		args.raw_magical = args.raw_magical + 21 + 4 *
-				source.level + 0.15 * source.bonus_armor
-	end,
-	Teemo = function(args) local source = args.source -- 12.20
-		local lvl = source:get_spell_book():get_spell_slot(e_spell_slot.e).level
-		if lvl == 0 then return end
-		args.raw_magical = args.raw_magical + 3 +
-				11 * lvl + 0.3 * source:get_ability_power()
-	end,
-	Trundle = function(args) local source = args.source -- 12.20
-		if not x.buffcache:has_buff(source, "TrundleTrollSmash") then return end
-		local lvl = source:get_spell_book():get_spell_slot(e_spell_slot.q).level
-		args.raw_physical = args.raw_physical + 20 * lvl +
-				(0.05 + 0.1 * lvl) * source:get_attack_damage()
-	end,
-	TwistedFate = function(args) local source = args.source -- 12.20
-		local lvl = source:get_spell_book():get_spell_slot(e_spell_slot.w).level
-		if x.buffcache:has_buff(source, "BlueCardPreAttack") then
-			args.raw_magical = args.raw_magical + 20 + 20 * lvl +
-					source:get_attack_damage() + 0.9 * source:get_ability_power()
-		elseif x.buffcache:has_buff(source, "RedCardPreAttack") then
-			args.raw_magical = args.raw_magical + 15 + 15 * lvl +
-					source:get_attack_damage() + 0.6 * source:get_ability_power()
-		elseif x.buffcache:has_buff(source, "GoldCardPreAttack") then
-			args.raw_magical = args.raw_magical + 7.5 + 7.5 * lvl +
+
+		if self.buffcache:has_buff(source, "lichbane") then -- Lich Bane
+			args.raw_magical = args.raw_magical + 0.75 *
 					source:get_attack_damage() + 0.5 * source:get_ability_power()
 		end
-		if args.raw_magical > 0 then args.raw_physical = 0 end
-		if x.buffcache:has_buff(source, "cardmasterstackparticle") then
-			local lvl = source:get_spell_book():get_spell_slot(e_spell_slot.e).level
-			args.raw_magical = args.raw_magical + 40 +
-					25 * lvl + 0.5 * source:get_ability_power()
+
+		if self.buffcache:has_buff(source, "sheen") then
+			args.raw_physical = args.raw_physical + source:get_attack_damage()
 		end
-	end,
-	Varus = function(args) local source = args.source -- 12.20
-		local lvl = source:get_spell_book():get_spell_slot(e_spell_slot.w).level
-		if lvl > 0 then args.raw_magical = args.raw_magical +
-				2 + 5 * lvl + 0.3 * source:get_ability_power() end
-	end,
-	Vayne = function(args) local source = args.source -- 12.20
-		if x.buffcache:has_buff(source, "vaynetumblebonus") then
-			local lvl = source:get_spell_book():get_spell_slot(e_spell_slot.q).level
-			local mod = (1.55 + 0.05 * lvl) * source:get_bonus_attack_damage()
-			args.raw_physical = args.raw_physical + mod
+
+		if self.buffcache:has_buff(source, "3078trinityforce") then -- Trinity Force
+			args.raw_physical = args.raw_physical + 2 * source:get_attack_damage()
 		end
-		local buff = x.buffcache:get_buff(args.unit, "VayneSilveredDebuff")
-		if not buff or buff:get_amount() ~= 2 then return end
-		local lvl = source:get_spell_book():get_spell_slot(e_spell_slot.w).level
-		args.true_damage = args.true_damage + math.max((0.02 +
-				0.02 * lvl) * args.unit.max_health, 35 + 15 * lvl)
-	end,
-	Vex = function(args)
-		-- TODO
-	end,
-	Vi = function(args) local source = args.source -- 12.20
-		if x.buffcache:has_buff(source, "ViE") then
-			local lvl = source:get_spell_book():get_spell_slot(e_spell_slot.e).level
-			-- TODO
+
+		if self.buffcache:get_buff(source, "item6664counter"):get_amount() == 100 then -- Turbo Chemtank
+			local damage = 35.29 + 4.71 * source.level + 0.01 *
+					source.max_health + 0.03 * source.movement_speed
+			args.raw_magical = args.raw_magical + damage * 1.3
 		end
-		local buff = x.buffcache:get_buff(args.unit, "viwproc")
-		if not buff or buff:get_amount() ~= 2 then return end
-		local lvl = source:get_spell_book():get_spell_slot(e_spell_slot.w).level
-		args.raw_physical = args.raw_physical + (0.025 + 0.015 * lvl + 0.01
-				* source:get_bonus_attack_damage() / 35) * args.unit.max_health
-	end,
-	Viego = function(args) local source = args.source
-		-- TODO: Q
-	end,
-	Viktor = function(args) local source = args.source -- 12.20
-		if not x.buffcache:has_buff(source, "ViktorPowerTransferReturn") then return end
-		local lvl = source:get_spell_book():get_spell_slot(e_spell_slot.q).level
-		args.raw_magical, args.raw_physical = args.raw_magical - 5 + 25 * lvl
-				+ source:get_attack_damage() + 0.6 * source:get_ability_power(), 0
-	end,
-	Volibear = function(args) local source = args.source -- 12.20
-		if not x.buffcache:has_buff(source, "volibearpapplicator") then return end
-		local mod = ({11, 12, 13, 15, 17, 19, 22, 25,
-					  28, 31, 34, 37, 40, 44, 48, 52, 56, 60})[source.level]
-		args.raw_magical = args.raw_magical + mod + 0.4 * source:get_ability_power()
-	end,
-	Warwick = function(args) local source = args.source -- 12.20
-		args.raw_magical = args.raw_magical + 10 + 2 * source.level + 0.15
-				* source:get_bonus_attack_damage() + 0.1 * source:get_ability_power()
-	end,
-	MonkeyKing = function(args) local source = args.source -- 12.20
-		if not x.buffcache:has_buff(source, "MonkeyKingDoubleAttack") then return end
-		local lvl = source:get_spell_book():get_spell_slot(e_spell_slot.q).level
-		args.raw_physical = args.raw_physical - 5 +
-				25 * lvl + 0.45 * source:get_bonus_attack_damage()
-	end,
-	XinZhao = function(args) local source = args.source -- 12.20
-		if not x.buffcache:has_buff(source, "XinZhaoQ") then return end
-		local lvl = source:get_spell_book():get_spell_slot(e_spell_slot.q).level
-		args.raw_physical = args.raw_physical + 7 +
-				9 * lvl + 0.4 * source:get_bonus_attack_damage()
-	end,
-	Yone = function(args)
-		-- TODO
-	end,
-	Yorick = function(args) local source = args.source -- 12.20
-		if not x.buffcache:has_buff(source, "yorickqbuff") then return end
-		local lvl = source:get_spell_book():get_spell_slot(e_spell_slot.q).level
-		args.raw_physical = args.raw_physical + 5 +
-				25 * lvl + 0.4 * source:get_attack_damage()
-	end,
-	Zed = function(args) local source = args.source -- 12.20
-		local level, maxHealth = source.level, args.unit.max_health
-		if args.unit.health / maxHealth >= 0.5 then return end
-		args.raw_magical = args.raw_magical + (level < 7 and
-				0.06 or level < 17 and 0.08 or 0.1) * maxHealth
-	end,
-	Zeri = function(args) local source = args.source -- 12.20
-		if not source:get_spell_book():can_cast(e_spell_slot.q) then return end
-		local lvl = source:get_spell_book():get_spell_slot(e_spell_slot.q).level
-		args.raw_physical = 5 + 3 * lvl + (0.995 +
-				0.05 * lvl) * myHero:get_attack_damage()
-	end,
-	Ziggs = function(args) local source = args.source -- 12.20
-		if not x.buffcache:has_buff(source, "ZiggsShortFuse") then return end
-		local mod = ({20, 24, 28, 32, 36, 40, 48, 56, 64,
-					  72, 80, 88, 100, 112, 124, 136, 148, 160})[source.level]
-		args.raw_magical = args.raw_magical + mod + 0.5 * source:get_ability_power()
-	end,
-	Zoe = function(args) local source = args.source -- 12.20
-		if not x.buffcache:has_buff(source, "zoepassivesheenbuff") then return end
-		local mod = ({16, 20, 24, 28, 32, 36, 42, 48, 54,
-					  60, 66, 74, 82, 90, 100, 110, 120, 130})[source.level]
-		args.raw_magical = args.raw_magical + mod + 0.2 * source:get_ability_power()
-	end
-}
-x.database.ITEM_PASSIVES = {
-	[3504] = function(args) local source = args.source -- Ardent Censer
-		if not x.buffcache:has_buff(source, "3504Buff") then return end
-		args.raw_magical = args.raw_magical + 4.12 + 0.88 * args.unit.level
-	end,
-	[3153] = function(args) local source = args.source -- Blade of the Ruined King
-		local mod = x.functions.helper:is_melee(source) and 0.12 or 0.08
-		args.raw_physical = args.raw_physical + math.min(
-				60, math.max(15, mod * args.unit.health))
-	end,
-	[3742] = function(args) local source = args.source -- Dead Man's Plate
-		local stacks = math.min(100, 0) -- TODO
-		args.raw_physical = args.raw_physical + 0.4 * stacks
-				+ 0.01 * stacks * source:get_attack_damage()
-	end,
-	[6632] = function(args) local source = args.source -- Divine Sunderer
-		if not x.buffcache:has_buff(source, "6632buff") then return end
-		args.raw_physical = args.raw_physical + 1.25 *
-				source:get_attack_damage() + (x.functions.helper:is_melee(source)
-				and 0.06 or 0.03) * args.unit.max_health
-	end,
-	[1056] = function(args) -- Doran's Ring
-		args.raw_physical = args.raw_physical + 5
-	end,
-	[1054] = function(args) -- Doran's Shield
-		args.raw_physical = args.raw_physical + 5
-	end,
-	[3508] = function(args) local source = args.source -- Essence Reaver
-		if not x.buffcache:has_buff(source, "3508buff") then return end
-		args.raw_physical = args.raw_physical + 0.4 *
-				source:get_bonus_attack_damage() + source:get_attack_damage()
-	end,
-	[3124] = function(args) local source = args.source -- Guinsoo's Rageblade
-		args.raw_physical = args.raw_physical +
-				math.min(200, source.crit_chance * 200)
-	end,
-	[2015] = function(args) local source = args.source -- Kircheis Shard
-		local buff = x.buffcache:get_buff(source, "itemstatikshankcharge")
-		local damage = buff and buff:get_amount() == 100 and 80 or 0
+
+		local buff = self.buffcache:get_buff(source, "itemstatikshankcharge")
+		local damage = buff and buff:get_amount() == 100 and 0 or 0
+
+		if buff then -- Kircheis Shard, Rapid Firecannon, Stormrazor
+			damage = buff:get_amount() == 100 and 80 or 0
+		end
+
 		args.raw_magical = args.raw_magical + damage
 	end,
-	[6672] = function(args) local source = args.source -- Kraken Slayer
-		local buff = x.buffcache:get_buff(source, "6672buff")
-		if not buff or buff:get_amount() ~= 2 then return end
-		args.true_damage = args.true_damage + 50 +
-				0.4 * source:get_bonus_attack_damage()
-	end,
-	[3100] = function(args) local source = args.source -- Lich Bane
-		if not x.buffcache:has_buff(source, "lichbane") then return end
-		args.raw_magical = args.raw_magical + 0.75 *
-				source:get_attack_damage() + 0.5 * source:get_ability_power()
-	end,
-	[3004] = function(args) -- Manamune
-		args.raw_physical = args.raw_physical
-				+ args.source.max_mana * 0.025
-	end,
-	[3042] = function(args) -- Muramana
-		args.raw_physical = args.raw_physical
-				+ args.source.max_mana * 0.025
-	end,
-	[3115] = function(args) -- Nashor's Tooth
-		args.raw_magical = args.raw_magical + 15
-				+ 0.2 * args.source:get_ability_power()
-	end,
-	[6670] = function(args) -- Noonquiver
-		args.raw_physical = args.raw_physical + 20
-	end,
-	[6677] = function(args) local source = args.source -- Rageknife
-		args.raw_physical = args.raw_physical +
-				math.min(175, 175 * source.crit_chance)
-	end,
-	[3094] = function(args) local source = args.source -- Rapid Firecannon
-		local buff = x.buffcache:get_buff(source, "itemstatikshankcharge")
-		local damage = buff and buff:get_amount() == 100 and 120 or 0
-		args.raw_magical = args.raw_magical + damage
-	end,
-	[1043] = function(args) -- Recurve Bow
-		args.raw_physical = args.raw_physical + 15
-	end,
-	[3057] = function(args) local source = args.source -- Sheen
-		if not x.buffcache:has_buff(source, "sheen") then return end
-		args.raw_physical = args.raw_physical + source:get_attack_damage()
-	end,
-	[3095] = function(args) local source = args.source -- Stormrazor
-		local buff = x.buffcache:get_buff(source, "itemstatikshankcharge")
-		local damage = buff and buff:get_amount() == 100 and 120 or 0
-		args.raw_magical = args.raw_magical + damage
-	end,
-	[3070] = function(args) -- Tear of the Goddess
-		args.raw_physical = args.raw_physical + 5
-	end,
-	[3748] = function(args) local source = args.source -- Titanic Hydra
-		local mod = x.functions.helper:is_melee(args.source) and {4, 0.015} or {3, 0.01125}
-		local damage = mod[1] + mod[2] * args.source.max_health
-		args.raw_physical = args.raw_physical + damage
-	end,
-	[3078] = function(args) local source = args.source -- Trinity Force
-		if not x.buffcache:has_buff(source, "3078trinityforce") then return end
-		args.raw_physical = args.raw_physical + 2 * source:get_attack_damage()
-	end,
-	[6664] = function(args) local source = args.source -- Turbo Chemtank
-		local buff = x.buffcache:get_buff(source, "item6664counter")
-		if not buff or buff:get_amount()~= 100 then return end
-		local damage = 35.29 + 4.71 * source.level + 0.01 *
-				source.max_health + 0.03 * source.movement_speed
-		args.raw_magical = args.raw_magical + damage * 1.3
-	end,
-	[3091] = function(args) local source = args.source -- Wit's End
-		local damage = ({15, 15, 15, 15, 15, 15, 15, 15, 25, 35,
-						 45, 55, 65, 75, 76.25, 77.5, 78.75, 80})[source.level]
-		args.raw_magical = args.raw_magical + damage
-	end
-}
 
-function x.damagelib:calc_aa_dmg(source, target)
-	local name = source.champion_name
-	local physical = source:get_attack_damage()
-	if name == "Corki" and physical > 0 then return
-	self:CalcMixedDamage(source, target, physical) end
-	local args = {raw_magical = 0, raw_physical = physical,
-				  true_damage = 0, source = source, unit = target}
+	calc_aa_dmg = function(self, source, target)
+		local name = source.champion_name
+		local physical = source:get_attack_damage()
+		if name == "Corki" and physical > 0 then return
+		self:calc_mixed_dmg(source, target, physical) end
+		local args = {raw_magical = 0, raw_physical = physical,
+					  true_damage = 0, source = source, unit = target}
 
-	local items = {}
-	for i = 6, 12 do
-		local slot = i
-		local item = source:get_spell_book():get_spell_slot(slot)
-		items[#items + 1] = item
-	end
+		local items = {}
+		for i = 6, 12 do
+			local slot = i
+			local item = source:get_spell_book():get_spell_slot(slot)
+			items[#items + 1] = item
+		end
 
-	local ids = Linq(items):Where("(i) => i ~= nil")
-						   :Select("(i) => i:get_name()"):Distinct():ForEach(function(i)
-		if x.database.ITEM_PASSIVES[i] then x.database.ITEM_PASSIVES[i](args) end end)
-	if x.database.CHAMP_PASSIVES[name] then x.database.CHAMP_PASSIVES[name](args) end
+		self:check_for_passives(self, args) -- TODO: check if this is correct
+		if self.CHAMP_PASSIVES[name] then self.CHAMP_PASSIVES[name](self, args) end
 
-	local magical = self:calc_ap_dmg(source, target, args.raw_magical)
-	local physical = self:calc_ad_dmg(source, target, args.raw_physical)
+		local magical = self:calc_ap_dmg(source, target, args.raw_magical)
+		local physical = self:calc_ad_dmg(source, target, args.raw_physical)
 
-	return magical + physical + args.true_damage
-end
+		return magical + physical + args.true_damage
+	end,
 
-function x.damagelib:calc_dmg(source, target, amount)
-	return source:get_ability_power() > source:get_attack_damage()
-			and self:calc_ap_dmg(source, target, amount)
-			or self:calc_ad_dmg(source, target, amount)
-end
+	calc_dmg = function(self, source, target, amount)
+		return source:get_ability_power() > source:get_attack_damage()
+				and self:calc_ap_dmg(source, target, amount)
+				or self:calc_ad_dmg(source, target, amount)
+	end,
 
-function x.damagelib:calc_ap_dmg(source, target, amount)
-	return helper.calculate_damage(amount, target.index, false)
-end
+	calc_ap_dmg = function(self, source, target, amount)
+		return helper.calculate_damage(amount, target.index, false)
+	end,
 
-function x.damagelib:calc_ad_dmg(source, target, amount)
-	return helper.calculate_damage(amount, target.index, true)
-end
+	calc_ap_dmg = function(self, source, target, amount)
+		return helper.calculate_damage(amount, target.index, true)
+	end,
 
--- Corki needs this...
-function x.damagelib:calc_mixed_dmg(source, target, amount)
-	return self:calc_ap_dmg(source, target, amount * 0.8)
-			+ self:calc_ad_dmg(source, target, amount * 0.2)
-end
+	calc_spell_dmg = function(self, spell, source, target, stage, level)
+		local source = source or myHero
+		local stage = stage or 1
+		local cache = {}
 
-function x.damagelib:calc_spell_dmg(spell, source, target, stage, level)
-	local source = source or myHero
-	local stage = stage or 1
-	local cache = {}
+		if stage > 4 then stage = 4 end
 
-	if stage > 4 then stage = 4 end
+		if spell == "Q" or spell == "W" or spell == "E" or spell == "R" or spell == "QM" or spell == "WM" or spell == "EM" then
+			local level = level or
+					source:get_spell_book():get_spell_slot((
+							{ ["Q"] = e_spell_slot.q, ["QM"] = e_spell_slot.q, ["W"] = e_spell_slot.w, ["WM"] = e_spell_slot.w, ["E"] = e_spell_slot.e, ["EM"] = e_spell_slot.e, ["R"] = e_spell_slot.r }
+					)[spell]).level
 
-	if spell == "Q" or spell == "W" or spell == "E" or spell == "R" or spell == "QM" or spell == "WM" or spell == "EM" then
-		local level = level or
-				source:get_spell_book():get_spell_slot((
-						{ ["Q"] = e_spell_slot.q, ["QM"] = e_spell_slot.q, ["W"] = e_spell_slot.w, ["WM"] = e_spell_slot.w, ["E"] = e_spell_slot.e, ["EM"] = e_spell_slot.e, ["R"] = e_spell_slot.r }
-				)[spell]).level
+			if level <= 0 then return 0 end
+			if level > 5 then level = 5 end
 
-		if level <= 0 then return 0 end
-		if level > 5 then level = 5 end
-
-		if x.database.DMG_LIST[source.champion_name.text:lower()] then
-			for _, spells in ipairs(x.database.DMG_LIST[source.champion_name.text:lower()]) do
-				if spells.slot == spell then
-					table.insert(cache, spells)
+			if self.database.DMG_LIST[source.champion_name.text:lower()] then
+				for _, spells in ipairs(self.database.DMG_LIST[source.champion_name.text:lower()]) do
+					if spells.slot == spell then
+						table.insert(cache, spells)
+					end
 				end
-			end
 
-			if stage > #cache then stage = #cache end
+				if stage > #cache then stage = #cache end
 
-			for v = #cache, 1, -1 do
-				local spells = cache[v]
-				if spells.stage == stage then
-					return x.damagelib:calc_dmg(source, target, spells.damage(source, target, level))
+				for v = #cache, 1, -1 do
+					local spells = cache[v]
+					if spells.stage == stage then
+						return self:calc_dmg(self, source, target, spells.damage(source, target, level))
+					end
 				end
 			end
 		end
-	end
 
-	if spell == "AA" then
-		return x.damagelib:calc_aa_dmg(source, target)
-	end
-
-	if spell == "IGNITE" then
-		return 50 + 20 * source.level - (target.total_health_regen * 3)
-	end
-
-	if spell == "SMITE" then
-
-		if stage == 1 then
-			if target:is_hero() then
-				return 0
-			end
-			return 600 -- Smite
+		if spell == "AA" then
+			return self:calc_aa_dmg(source, target)
 		end
 
-		if stage == 2 then
-			if target:is_hero() then
-				return 80 + 80 / 17 * (source.level - 1)
-			end
-			return 900
+		if spell == "IGNITE" then
+			return 50 + 20 * source.level - (target.total_health_regen * 3)
 		end
 
-		if stage == 3 then
-			if target:is_hero() then
-				return 80 + 80 / 17 * (source.level - 1)
+		if spell == "SMITE" then
+
+			if stage == 1 then
+				if target:is_hero() then
+					return 0
+				end
+				return 600 -- Smite
 			end
-			return 1200
+
+			if stage == 2 then
+				if target:is_hero() then
+					return 80 + 80 / 17 * (source.level - 1)
+				end
+				return 900
+			end
+
+			if stage == 3 then
+				if target:is_hero() then
+					return 80 + 80 / 17 * (source.level - 1)
+				end
+				return 1200
+			end
 		end
-	end
 
-	return 0
-end
+		return 0
+	end,
 
+})
 
 --------------------------------------------------------------------------------
-
 
 -- Database
 --------------------------------------------------------------------------------
 
-x.database.DASH_LIST = {
-	Rakan = {
-		{
-			menuslot = W,
-			slot = 1,
-		},
-		{
-			menuslot = E,
-			targeted = true,
-			slot = 2,
-		},
-	},
-	Renekton = {
-		{
-			menuslot = E,
-			slot = 2,
-		},
-	},
-	Nocturne = {
-		{
-			menuslot = R,
-			slot = 3,
-		},
-	},
-	Caitlyn = {
-		{
-			menuslot = E,
-			slot = 2,
-		},
-	},
-	Poppy = {
-		{
-			menuslot = E,
-			targeted = true,
-			slot = 2,
-		},
-	},
-	Zeri = {
-		{
-			menuslot = E,
-			slot = 2,
-		},
-	},
-	Samira = {
-		{
-			menuslot = E,
-			targeted = true,
-			slot = 2,
-		},
-	},
-	Talon = {
-		{
-			menuslot = Q,
-			slot = 0,
-		},
-		{
-			menuslot = E,
-			slot = 2,
-		},
-	},
-	Thresh = {
-		{
-			menuslot = Q,
-			slot = 0,
-		},
-	},
-	Tristana = {
-		{
-			menuslot = W,
-			slot = 1,
-		},
-	},
-	Tryndamere = {
-		{
-			menuslot = E,
-			slot = 2,
-		},
-	},
-	Riven = {
-		{
-			menuslot = Q1,
-			slot = 0,
-		},
-		{
-			menuslot = Q2,
-			slot = 0,
-		},
-		{
-			menuslot = Q3,
-			slot = 0,
-		},
-		{
-			menuslot = E,
-			slot = 2,
-		},
-	},
-	Urgot = {
-		{
-			menuslot = E,
-			slot = 2,
-		},
-	},
-	Shaco = {
-		{
-			menuslot = Q,
-			slot = 0,
-		},
-	},
-	Xinzhao = {
-		{
-			menuslot = E,
-			targeted = true,
-			slot = 2,
-		},
-	},
-	Yasuo = {
-		{
-			menuslot = E,
-			targeted = true,
-			slot = 2,
-		},
-	},
-	Gnar = {
-		{
-			menuslot = E,
-			slot = 2,
-		},
-	},
-	Jayce = {
-		{
-			menuslot = Q,
-			targeted = true,
-			slot = 0,
-		},
-	},
-	Shen = {
-		{
-			menuslot = E,
-			slot = 2,
-		},
-	},
-	Aatrox = {
-		{
-			menuslot = E,
-			slot = 2,
-		},
-	},
-	Shyvana = {
-		{
-			menuslot = R,
-			slot = 3,
-		},
-	},
-	Akali = {
-		{
-			menuslot = E,
-			slot = 2,
-		},
-		{
-			menuslot = R,
-			slot = 3,
-		},
-	},
-	Sylas = {
-		{
-			menuslot = E,
-			slot = 2,
-		},
-	},
-	Monkeyking = {
-		{
-			menuslot = W,
-			slot = 1,
-		},
-		{
-			menuslot = E,
-			targeted = true,
-			slot = 2,
-		},
-	},
-	Vayne = {
-		{
-			menuslot = Q,
-			slot = 0,
-		},
-	},
-	Vex = {
-		{
-			menuslot = R,
-			slot = 3,
-		},
-	},
-	Vi = {
-		{
-			menuslot = Q,
-			slot = 0,
-		},
-	},
-	Viego = {
-		{
-			menuslot = W,
-			slot = 1,
-		},
-	},
-	Zac = {
-		{
-			menuslot = E,
-			slot = 2,
-		},
-	},
-	Volibear = {
-		{
-			menuslot = R,
-			slot = 3,
-		},
-	},
-	Diana = {
-		{
-			menuslot = E,
-			targeted = true,
-			slot = 2,
-		},
-	},
-	Warwick = {
-		{
-			menuslot = Q,
-			targeted = true,
-			slot = 0,
-		},
-		{
-			menuslot = R,
-			slot = 3,
-		},
-	},
-	Rell = {
-		{
-			menuslot = W,
-			slot = 1,
-		},
-	},
-	Elise = {
-		{
-			menuslot = Q,
-			slot = 0,
-		},
-	},
-	Ekko = {
-		{
-			menuslot = E,
-			slot = 2,
-		},
-	},
-	Corki = {
-		{
-			menuslot = W,
-			slot = 1,
-		},
-	},
-	Yone = {
-		{
-			menuslot = Q,
-			slot = 0,
-		},
-		{
-			menuslot = R,
-			slot = 3,
-		},
-	},
-	Fiddlesticks = {
-		{
-			menuslot = R,
-			slot = 3,
-		},
-	},
-	Camille = {
-		{
-			menuslot = E,
-			slot = 2,
-		},
-	},
-	Zed = {
-		{
-			menuslot = W,
-			slot = 1,
-		},
-		{
-			menuslot = R,
-			slot = 3,
-		},
-	},
-	Fizz = {
-		{
-			menuslot = Q,
-			slot = 0,
-		},
-	},
-	Galio = {
-		{
-			menuslot = E,
-			slot = 2,
-		},
-	},
-	Amumu = {
-		{
-			menuslot = Q,
-			slot = 0,
-		},
-	},
-	Garen = {
-		{
-			menuslot = Q,
-			slot = 0,
-		},
-	},
-	Alistar = {
-		{
-			menuslot = W,
-			targeted = true,
-			slot = 1,
-		},
-	},
-	Malphite = {
-		{
-			menuslot = R,
-			slot = 3,
-		},
-	},
-	Gragas = {
-		{
-			menuslot = E,
-			slot = 2,
-		},
-	},
-	Ahri = {
-		{
-			menuslot = R,
-			slot = 3,
-		},
-	},
-	Gwen = {
-		{
-			menuslot = E,
-			slot = 2,
-		},
-	},
-	Illaoi = {
-		{
-			menuslot = W,
-			targeted = true,
-			slot = 1,
-		},
-	},
-	Sejuani = {
-		{
-			menuslot = Q,
-			slot = 0,
-		},
-	},
-	Irelia = {
-		{
-			menuslot = Q,
-			targeted = true,
-			slot = 0,
-		},
-	},
-	Ziggs = {
-		{
-			menuslot = W,
-			slot = 1,
-		},
-	},
-	Azir = {
-		{
-			menuslot = E,
-			slot = 2,
-		},
-	},
-	Belveth = {
-		{
-			menuslot = Q,
-			slot = 0,
-		},
-	},
-	Jax = {
-		{
-			menuslot = Q,
-			targeted = true,
-			slot = 0,
-		},
-	},
-	Yuumi = {
-		{
-			menuslot = W,
-			targeted = true,
-			slot = 1,
-		},
-	},
-	Evelynn = {
-		{
-			menuslot = E,
-			targeted = true,
-			slot = 2,
-		},
-	},
-	Ezreal = {
-		{
-			menuslot = E,
-			slot = 2,
-		},
-	},
-	Nidalee = {
-		{
-			menuslot = W,
-			slot = 1,
-		},
-	},
-	Fiora = {
-		{
-			menuslot = Q,
-			slot = 0,
-		},
-	},
-	Quinn = {
-		{
-			menuslot = E,
-			slot = 2,
-		},
-	},
-	Jarvaniv = {
-		{
-			menuslot = Q,
-			slot = 0,
-		},
-		{
-			menuslot = R,
-			slot = 3,
-		},
-	},
-	Kaisa = {
-		{
-			menuslot = R,
-			slot = 3,
-		},
-	},
-	Ksante = {
-		{
-			menuslot = W,
-			slot = 1,
-		},
-		{
-			menuslot = E,
-			slot = 2,
-		},
-		{
-			menuslot = R,
-			targeted = true,
-			slot = 3,
-		},
-	},
-	Ivern = {
-		{
-			menuslot = Q,
-			slot = 0,
-		},
-	},
-	Kassadin = {
-		{
-			menuslot = R,
-			slot = 3,
-		},
-	},
-	Kalista = {
-		{
-			menuslot = Q,
-			slot = 0,
-		},
-	},
-	Braum = {
-		{
-			menuslot = W,
-			slot = 1,
-		},
-	},
-	Katarina = {
-		{
-			menuslot = E,
-			targeted = true,
-			slot = 49,
-		},
-	},
-	Kayn = {
-		{
-			menuslot = Q,
-			slot = 0,
-		},
-	},
-	Khazix = {
-		{
-			menuslot = E,
-			slot = 2,
-		},
-	},
-	Kindred = {
-		{
-			menuslot = Q,
-			slot = 0,
-		},
-	},
-	Leona = {
-		{
-			menuslot = E,
-			slot = 2,
-		},
-	},
-	Masteryi = {
-		{
-			menuslot = Q,
-			targeted = true,
-			slot = 0,
-		},
-	},
-	Leblanc = {
-		{
-			menuslot = W,
-			slot = 1,
-		},
-		{
-			menuslot = R,
-			slot = 3,
-		},
-	},
-	Leesin = {
-		{
-			menuslot = Q,
-			targeted = true,
-			slot = 0,
-		},
-		{
-			menuslot = W,
-			slot = 1,
-		},
-	},
-	Lillia = {
-		{
-			menuslot = W,
-			slot = 1,
-		},
-	},
-	Lissandra = {
-		{
-			menuslot = E,
-			slot = 2,
-		},
-	},
-	Lucian = {
-		{
-			menuslot = E,
-			slot = 2,
-		},
-	},
-	Graves = {
-		{
-			menuslot = E,
-			slot = 2,
-		},
-	},
-	Pyke = {
-		{
-			menuslot = E,
-			slot = 2,
-		},
-	},
-	Maokai = {
-		{
-			menuslot = W,
-			targeted = true,
-			slot = 1,
-		},
-	},
-	Kled = {
-		{
-			menuslot = E,
-			slot = 2,
-		},
-	},
-	Hecarim = {
-		{
-			menuslot = E,
-			slot = 46,
-		},
-		{
-			menuslot = R,
-			slot = 3,
-		},
-	},
-	Nilah = {
-		{
-			menuslot = E,
-			targeted = true,
-			slot = 2,
-		},
-	},
-	Reksai = {
-		{
-			menuslot = E,
-			slot = 2,
-		},
-		{
-			menuslot = R,
-			slot = 3,
-		},
-	},
-	Rengar = {
-		{
-			menuslot = P,
-			slot = -1,
-		},
-	},
-	Ornn = {
-		{
-			menuslot = E,
-			slot = 2,
-		},
-	},
-	Pantheon = {
-		{
-			menuslot = W,
-			targeted = true,
-			slot = 1,
-		},
-	},
-	Nautilus = {
-		{
-			menuslot = Q,
-			slot = 0,
-		},
-	},
-	Qiyana = {
-		{
-			menuslot = E,
-			slot = 2,
-		},
-	},
-}
+local database = class({
 
-x.database.DMG_LIST = {
-	Jinx = { -- 13.6
-		{ slot = "Q", stage = 1, damage_type = 1,
-		  damage = function(source, target, level) return 0.1 * source:get_attack_damage() end },
-		{ slot = "W", stage = 1, damage_type = 1,
-		  damage = function(source, target, level) return ({ 10, 60, 110, 160, 210 })[level] + 1.6 * source:get_attack_damage() end },
-		{ slot = "E", stage = 1, damage_type = 2,
-		  damage = function(source, target, level) return ({ 70, 120, 170, 220, 270 })[level] + source:get_ability_power() end },
-		{ slot = "R", stage = 1, damage_type = 1,
-		  damage = function(source, target, level)
-			  local dmg = (({ 30, 45, 60 })[level] + (0.15 * source:get_bonus_attack_damage()) * (1.10 + (0.06 * math.min(math.floor(source.position:dist_to(target.position) / 100), 15)))) +
-					  (({ 25, 30, 35 })[level] / 100 * x.helper:get_missing_hp(target));
-			  return dmg
-		  end },
-		{ slot = "R", stage = 2, damage_type = 1,
-		  damage = function(source, target, level)
-			  local dmg = (({ 24, 36, 48 })[level] + (0.12 * source:get_bonus_attack_damage()) * (1.10 + (0.06 * math.min(math.floor(source.position:dist_to(target.position) / 100), 15)))) +
-					  (({ 20, 24, 28 })[level] / 100 * x.helper:get_missing_hp(target));
-			  if target:is_ai() then return math.min(1200, dmg) end
-			  ;
-			  return dmg
-		  end },
+	helper = nil,
+
+	init = function(self, helper)
+		self.helper = helper
+	end,
+
+	DASH_LIST = {
+		Rakan = {e_spell_slot.w, e_spell_slot.e},
+		Renekton = {e_spell_slot.e},
+		Nocturne = {e_spell_slot.r},
+		Caitlyn = {e_spell_slot.e},
+		Poppy = {e_spell_slot.e},
+		Zeri = {e_spell_slot.e},
+		Samira = {e_spell_slot.e},
+		Talon = {e_spell_slot.q, e_spell_slot.e},
+		Thresh = {e_spell_slot.q},
+		Tristana = {e_spell_slot.w},
+		Tryndamere = {e_spell_slot.e},
+		Riven = {e_spell_slot.q1, e_spell_slot.q2, e_spell_slot.q3, e_spell_slot.e},
+		Urgot = {e_spell_slot.e},
+		Shaco = {e_spell_slot.q},
+		Xinzhao = {e_spell_slot.e},
+		Yasuo = {e_spell_slot.e},
+		Gnar = {e_spell_slot.e},
+		Jayce = {e_spell_slot.q},
+		Shen = {e_spell_slot.e},
+		Aatrox = {e_spell_slot.e},
+		Shyvana = {e_spell_slot.r},
+		Akali = {e_spell_slot.e, e_spell_slot.r},
+		Sylas = {e_spell_slot.e},
+		Monkeyking = {e_spell_slot.w, e_spell_slot.e},
+		Vayne = {e_spell_slot.q},
+		Vex = {e_spell_slot.r},
+		Vi = {e_spell_slot.q},
+		Viego = {e_spell_slot.w},
+		Zac = {e_spell_slot.e},
+		Volibear = {e_spell_slot.r},
+		Diana = {e_spell_slot.e},
+		Warwick = {e_spell_slot.q, e_spell_slot.r},
+		Rell = {e_spell_slot.w},
+		Elise = {e_spell_slot.q},
+		Ekko = {e_spell_slot.e},
+		Corki = {e_spell_slot.w},
+		Yone = {e_spell_slot.q, e_spell_slot.r},
+		Fiddlesticks = {e_spell_slot.r},
+		Camille = {e_spell_slot.e},
+		Zed = {e_spell_slot.w, e_spell_slot.r},
+		Fizz = {e_spell_slot.q},
+		Galio = {e_spell_slot.e},
+		Amumu = {e_spell_slot.q},
+		Garen = {e_spell_slot.q},
+		Alistar = {e_spell_slot.w},
+		Malphite = {e_spell_slot.r},
+		Gragas = {e_spell_slot.e},
+		Ahri = {e_spell_slot.r},
+		Gwen = {e_spell_slot.e},
+		Illaoi = {e_spell_slot.w},
+		Sejuani = {e_spell_slot.q},
+		Irelia = {e_spell_slot.q},
+		Ziggs = {e_spell_slot.w},
+		Azir = {e_spell_slot.e},
+		Belveth = {e_spell_slot.q},
+		Jax = {e_spell_slot.q},
+		Yuumi = {e_spell_slot.w},
+		Evelynn = {e_spell_slot.e},
+		Ezreal = {e_spell_slot.e},
+		Nidalee = {e_spell_slot.w},
+		Fiora = {e_spell_slot.q},
+		Quinn = {e_spell_slot.e},
+		Jarvaniv = {e_spell_slot.q, e_spell_slot.r},
+		Kaisa = {e_spell_slot.r},
+		Ksante = {e_spell_slot.w, e_spell_slot.e, e_spell_slot.r},
+		Ivern = {e_spell_slot.q},
+		Kassadin = {e_spell_slot.r},
+		Kalista  = {e_spell_slot.q},
+		Braum = {e_spell_slot.w},
+		Katarina = {e_spell_slot.e},
+		Kayn = {e_spell_slot.q},
+		KhaZix = {e_spell_slot.e},
+		Kindred = {e_spell_slot.q},
+		Leona = {e_spell_slot.e},
+		MasterYi = {e_spell_slot.q},
+		Leblanc = {e_spell_slot.w, e_spell_slot.r},
+		LeeSin = {e_spell_slot.q, e_spell_slot.w},
+		Lillia = {e_spell_slot.w},
+		Lissandra = {e_spell_slot.e},
+		Lucian = {e_spell_slot.e},
+		Graves = {e_spell_slot.e},
+		Pyke = {e_spell_slot.e},
+		Maokai = {e_spell_slot.w},
+		Kled = {e_spell_slot.e},
+		Hecarim = {e_spell_slot.e, e_spell_slot.r},
+		Nilah = {e_spell_slot.e},
+		RekSai = {e_spell_slot.e, e_spell_slot.r},
+		-- Rengar? passive TODO
+		Orrn = {e_spell_slot.e},
+		Pantheon = {e_spell_slot.w},
+		Nautilus = {e_spell_slot.q},
+		Qiyana = {e_spell_slot.w, e_spell_slot.e},
+		Sion = {e_spell_slot.e},
 	},
 
-	Sion = { -- 13.6
-		{ slot = "Q", stage = 1, damage_type = 1,
-		  damage = function(source, target, level) return ({ 40, 60, 80, 100, 120 })[level] +
-				  ({ 45, 52, 60, 67, 75 })[level] / 100 * source:get_attack_damage()
-		  end },
-		{ slot = "W", stage = 1, damage_type = 2,
-		  damage = function(source, target, level) return ({ 40, 65, 90, 115, 140 })[level] + 0.4 * source:get_ability_power() +
-				  ({ 10, 11, 12, 13, 14 })[level] / 100 * target.max_health
-		  end },
-		{ slot = "E", stage = 1, damage_type = 2,
-		  damage = function(source, target, level) return ({ 65, 100, 135, 170, 205 })[level] + 0.55 * source:get_ability_power() end },
-		{ slot = "R", stage = 1, damage_type = 1,
-		  damage = function(source, target, level) return ({ 150, 300, 450 })[level] + 0.4 * source:get_bonus_attack_damage() end },
+	DMG_LIST = {
+		Jinx = { -- 13.6
+			{ slot = "Q", stage = 1, damage_type = 1,
+			  damage = function(self, source, target, level) return 0.1 * source:get_attack_damage() end },
+			{ slot = "W", stage = 1, damage_type = 1,
+			  damage = function(self, source, target, level) return ({ 10, 60, 110, 160, 210 })[level] + 1.6 * source:get_attack_damage() end },
+			{ slot = "E", stage = 1, damage_type = 2,
+			  damage = function(self, source, target, level) return ({ 70, 120, 170, 220, 270 })[level] + source:get_ability_power() end },
+			{ slot = "R", stage = 1, damage_type = 1,
+			  damage = function(self, source, target, level)
+				  local dmg = (({ 30, 45, 60 })[level] + (0.15 * source:get_bonus_attack_damage()) * (1.10 + (0.06 * std_math.min(std_math.floor(source.position:dist_to(target.position) / 100), 15)))) +
+						  (({ 25, 30, 35 })[level] / 100 * self.helper:get_missing_hp(target));
+				  return dmg
+			  end },
+			{ slot = "R", stage = 2, damage_type = 1,
+			  damage = function(self, source, target, level)
+				  local dmg = (({ 24, 36, 48 })[level] + (0.12 * source:get_bonus_attack_damage()) * (1.10 + (0.06 * std_math.min(std_math.floor(source.position:dist_to(target.position) / 100), 15)))) +
+						  (({ 20, 24, 28 })[level] / 100 * self.helper:get_missing_hp(target));
+				  if target:is_ai() then return std_math.min(1200, dmg) end
+				  ;
+				  return dmg
+			  end },
+		},
+
+		Sion = { -- 13.6
+			{ slot = "Q", stage = 1, damage_type = 1,
+			  damage = function(self, source, target, level) return ({ 40, 60, 80, 100, 120 })[level] +
+					  ({ 45, 52, 60, 67, 75 })[level] / 100 * source:get_attack_damage()
+			  end },
+			{ slot = "W", stage = 1, damage_type = 2,
+			  damage = function(self, source, target, level) return ({ 40, 65, 90, 115, 140 })[level] + 0.4 * source:get_ability_power() +
+					  ({ 10, 11, 12, 13, 14 })[level] / 100 * target.max_health
+			  end },
+			{ slot = "E", stage = 1, damage_type = 2,
+			  damage = function(self, source, target, level) return ({ 65, 100, 135, 170, 205 })[level] + 0.55 * source:get_ability_power() end },
+			{ slot = "R", stage = 1, damage_type = 1,
+			  damage = function(self, source, target, level) return ({ 150, 300, 450 })[level] + 0.4 * source:get_bonus_attack_damage() end },
+		},
 	},
-}
+
+	has_dash = function(self, unit)
+		if self.DASH_LIST[unit.champion_name.text] == nil then return false end
+		return true
+	end,
+
+	has_dash_available = function(self, unit)
+		local champion = unit.champion_name.text
+		local dash_spells = self.DASH_LIST[champion]
+
+		if not dash_spells then
+			return false
+		end
+
+		for _, slot in ipairs(dash_spells) do
+			if unit:get_spell_book():get_spell_slot(slot):is_ready() then
+				return true
+			end
+		end
+
+		return false
+	end,
+
+})
 
 --------------------------------------------------------------------------------
 
-
--- Object Sections // Weight, Target
+-- Target Selector // very experimental and wip. needs to be improved.
 --------------------------------------------------------------------------------
 
 local Weight = {}
@@ -1919,9 +661,7 @@ function Weight.new(distance, damage, priority, health)
 	self.damage = damage
 	self.priority = priority
 	self.health = health
-	local is_melee = x.helper:is_melee(myHero)
-	local weights = is_melee and WEIGHT_TABLE[1] or WEIGHT_TABLE[2]
-	self.total = distance * weights.distance + damage * weights.damage + priority * weights.priority + health * weights.health
+	self.total = 0
 	return self
 end
 
@@ -1935,12 +675,64 @@ function Target.new(unit, weight)
 	return self
 end
 
---------------------------------------------------------------------------------
-
-
--- Target Selector // very experimental and wip. needs to be improved.
---------------------------------------------------------------------------------
 local target_selector = class({
+
+	helper = nil,
+	math = nil,
+	objects = nil,
+	damagelib = nil,
+
+	add = menu.get_main_window():push_navigation("target selector", 10000) ,
+	nav = menu.get_main_window():find_navigation("target selector"),
+
+	ts_sec = nil,
+	ts_enabled = false,
+	drawings_sec = nil,
+	debug_sec = nil,
+	weight_sec = nil,
+
+	focus_target = true,
+	draw_target = true,
+	draw_weight = false,
+	weight_mode = true,
+
+	weight_dis = 0,
+	weight_dmg = 0,
+	weight_prio = 0,
+	weight_hp = 0,
+
+	init = function(self, helper, math, objects, damagelib)
+
+		self.helper = helper
+		self.math = math
+		self.objects = objects
+		self.damagelib = damagelib
+
+		self.ts_sec = self.nav:add_section("target selector")
+		self.drawings_sec = self.nav:add_section("drawings")
+		self.debug_sec = self.nav:add_section("debug")
+		self.weight_sec = self.nav:add_section("weight")
+
+		self.ts_enabled = self.ts_sec:checkbox("enabled", g_config:add_bool(true, "ts_enabled"))
+
+		self.focus_target = self.ts_sec:checkbox("click to focus", g_config:add_bool(true, "focus_target"))
+
+		self.draw_target = self.drawings_sec:checkbox("visualize targets", g_config:add_bool(true, "draw_targets"))
+
+		self.draw_weight = self.debug_sec:checkbox("draw weight", g_config:add_bool(false, "draw_weight"))
+
+		self.weight_mode = self.weight_sec:checkbox("use weight mode", g_config:add_bool(true, "weight_mode"))
+
+		self.debug_sec:button("made w/ love by ampx", function() end)
+
+		self.weight_dis = self.weight_sec:slider_int("distance", g_config:add_int(10, "weight_distance"), 0, 100, 1)
+		self.weight_dmg = self.weight_sec:slider_int("damage", g_config:add_int(10, "weight_damage"), 0, 100, 1)
+		self.weight_prio = self.weight_sec:slider_int("priority", g_config:add_int(10, "weight_priority"), 0, 100, 1)
+		self.weight_hp = self.weight_sec:slider_int("health", g_config:add_int(15, "weight_health"), 0, 100, 1)
+
+	end,
+
+	FORCED_TARGET = nil,
 	PRIORITY_LIST = {
 		Aatrox = 3, Ahri = 4, Akali = 4, Akshan = 5, Alistar = 1,
 		Amumu = 1, Anivia = 4, Annie = 4, Aphelios = 5, Ashe = 5,
@@ -1977,85 +769,66 @@ local target_selector = class({
 		Ziggs = 4, Zilean = 3, Zoe = 4, Zyra = 3
 	},
 	TARGET_CACHE = {},
-	WEIGHT_TABLE = {
-		[1] = {
-			distance = 1,
-			damage = 1,
-			priority = 1,
-			health = 1.5
-		},
-		[2] = {
-			distance = 2,
-			damage = 2,
-			priority = 2,
-			health = 1.5
-		}
-	},
-
 	WEIGHT_CACHE = {
-		function(self, a, b)
-		local d = x.math:dis_sq(myHero.position, b.position)
-		local w = d / 1000000
-		if not x.helper:is_melee(b) then w = w * self.WEIGHT_TABLE[1].distance else w = w * self.WEIGHT_TABLE[2].distance end
-		return w
-	end,
-
-	function(self,a, b)
-		local a_dmg = x.damagelib:calc_dmg(myHero, a, 100) / (1 + a.health)
-		local b_dmg = x.damagelib:calc_dmg(myHero, b, 100) / (1 + b.health)
-		return a_dmg / b_dmg
-	end,
-
-	function(self,a, b)
-		local mod = {1, 1.5, 1.75, 2, 2.5}
-		local pa = mod[self.PRIORITY_LIST[a.champion_name] or 3]
-		local pb = mod[self.PRIORITY_LIST[b.champion_name] or 3]
-		return pa / pb
-	end,
-
-	function(self,a, b)
-		return b.health / a.health
-	end
+		function(self,a, b)
+			return b.health / a.health
+		end
 	},
-
-	init = function(self)
-		self.cache = {}
-	end,
 
 	get_cache = function(self, range)
 		return self.TARGET_CACHE[range]
 	end,
 
 	refresh_targets = function(self, range)
-		self.TARGET_CACHE[range] = {enemies = {}}
+		if not self.TARGET_CACHE[range] then
+			self.TARGET_CACHE[range] = {enemies = {}}
+		end
 
-		local enemies = x.objects:get_enemy_champs(range):Where(function(e) return not x.helper:is_invincible(e) end)
+		local enemies = self.objects:get_enemy_champs(range):Where(function(e) return not self.helper:is_invincible(e) end)
 
 		for i = 1, #enemies do
 			local weight = {total = 0}
 			for j = 1, #enemies do
 				if i ~= j then
 					for k, func in ipairs(self.WEIGHT_CACHE) do
-						weight[k] = (weight[k] or 0) + func(enemies[i], enemies[j])
+						weight[k] = (weight[k] or 0) + func(self, enemies[i], enemies[j])
 					end
 				end
 			end
 
-			if not self.TARGET_CACHE[range].enemies[i] then
-				self.TARGET_CACHE[range].enemies[i] = {}
-			end
+			local target = self.TARGET_CACHE[range].enemies[i] or {}
+			local new_weight = {}
 
-			local target = self.TARGET_CACHE[range].enemies[i]
-			target.target = enemies[i]
-			target.weight = target.weight or {}
-			target.weight.distance = weight[1] or 0
-			target.weight.damage = weight[2] or 0
-			target.weight.priority = weight[3] or 0
-			target.weight.health = weight[4] or 0
-			target.weight.total = target.weight.distance + target.weight.damage + target.weight.priority + target.weight.health
+			local d = self.math:dis_sq(myHero.position, enemies[i].position)
+			local w = 10000 / (1 + std_math.sqrt(d))
+			if not self.helper:is_melee(enemies[i]) then w = w * self.weight_dis:get_value() / 10 else w = w * (self.weight_dis:get_value() / 10 + 1) end
+
+			local factor = { damage = self.weight_dmg:get_value(), prio = self.weight_prio:get_value() / 10, health = self.weight_hp:get_value() / 10 }
+			new_weight.damage = (self.damagelib:calc_dmg(myHero, enemies[i], 100) / (1 + enemies[i].health) * 20) * factor.damage
+			local mod = {1, 1.5, 1.75, 2, 2.5}
+			new_weight.priority = mod[self.PRIORITY_LIST[enemies[i].champion_name] or 3] * factor.prio
+			new_weight.health = (weight[2] or 0) * factor.health * factor.health
+			new_weight.total = w + new_weight.damage + new_weight.priority + new_weight.health
+			if not target.target or new_weight.total ~= target.weight.total then
+				target.target = enemies[i]
+				target.weight = new_weight
+				self.TARGET_CACHE[range].enemies[i] = target
+			end
 		end
 
 		table.sort(self.TARGET_CACHE[range].enemies, function(a, b) return a.weight.total > b.weight.total end)
+
+		if not self.FORCED_TARGET == nil then
+			local target = self.FORCED_TARGET
+			local new_weight = {}
+			new_weight.distance = 1000000
+			new_weight.damage = 1000000
+			new_weight.priority = 1000000
+			new_weight.health = 1000000
+			new_weight.total = 1000000
+			target.weight = new_weight
+			self.TARGET_CACHE[range].enemies[1] = target
+		end
 	end,
 
 	get_main_target = function(self, range)
@@ -2068,33 +841,324 @@ local target_selector = class({
 		return self.TARGET_CACHE[range].enemies[2].target
 	end,
 
+	get_forced_target = function(self, range)
+		return self.FORCED_TARGET
+	end,
+
 	get_targets = function(self, range)
 		self:refresh_targets(range)
 		return self.TARGET_CACHE[range].enemies
 	end,
-})
 
+	force_target = function(self)
+		if g_input:is_key_pressed(1) then
+			local target = nil
+			local mousePos = g_input:get_cursor_position()
+			local lowestDistance = std_math.huge
+			local maxDistance = 70
+			for i, enemy in ipairs(features.entity_list:get_enemies()) do
+				if self.helper:is_valid(enemy) then
+					local enemyVec2 = enemy.position:to_screen()
+					if enemyVec2 ~= nil and enemyVec2.y > 25 then
+						enemyVec2.y = enemyVec2.y - 25
+						local dist = enemyVec2:dist_to(mousePos)
+						if dist < maxDistance and dist < lowestDistance then
+							target = enemy
+							lowestDistance = dist
+						end
+					end
+				end
+			end
+			self.FORCED_TARGET = target
+		end
+	end;
+
+	draw = function(self)
+		if not self.ts_enabled:get_value() then return end
+		local cache = self:get_cache(9999999)
+		local forced = self:get_forced_target()
+
+		if forced and self.draw_target:get_value() and forced:is_visible()then
+			g_render:circle_3d(forced.position, color:new(255, 0, 255, 55), 100, 3, 55, 1)
+		end
+		if cache and cache.enemies then
+			for i, data in ipairs(cache.enemies) do
+				if self.draw_target:get_value() and data.target:is_visible() then
+					if i == 1 and not forced then
+						g_render:circle_3d(data.target.position, color:new(255, 0, 0, 55), 100, 3, 55, 1)
+					end
+				end
+
+				if self.draw_weight:get_value() then
+					if data.target.position:to_screen()~= nil then
+						g_render:text(
+								vec2:new(data.target.position:to_screen().x + 60,
+										data.target.position:to_screen().y - 10),
+								color:new(255, 255, 255),
+								data.weight.total .. "",
+								nil,
+								15
+						)
+					end
+				end
+			end
+		end
+	end,
+
+	tick = function(self)
+		if not self.ts_enabled:get_value() then return end
+		self:force_target()
+		local forced = self:get_forced_target()
+		local target = self:get_main_target(9999999)
+		if forced then
+			target = forced
+		end
+		if target ~= nil then
+			features.target_selector:force_target(target.index)
+		else
+			features.target_selector:force_target(-1)
+		end
+	end
+
+})
 
 --------------------------------------------------------------------------------
 
+-- Permashow
+--------------------------------------------------------------------------------
+
+local permashow = class({
+	hotkeys_ordered = {},
+	hotkeys_id = {},
+	title = "PERMASHOW",
+	width = 100,
+	height = 100,
+	dragging = false,
+	drag_x = 0,
+	drag_y = 0,
+
+	add = menu.get_main_window():push_navigation("permashow", 10000),
+	nav = menu.get_main_window():find_navigation("permashow"),
+
+	ps_sec = nil,
+	draw_sec = nil,
+
+	ps_enable = false,
+
+	x = 0,
+	y = 0,
+
+	ps_color_bg_r = 0,
+	ps_color_bg_g = 0,
+	ps_color_bg_b = 0,
+	ps_color_bg_a = 0,
+
+	ps_color_text_r = 0,
+	ps_color_text_g = 0,
+	ps_color_text_b = 0,
+	ps_color_text_a = 0,
+
+	init = function(self)
+
+		self.ps_sec = self.nav:add_section("permashow")
+		self.draw_sec = self.nav:add_section("color settings")
+
+		self.ps_enable = self.ps_sec:checkbox("enabled", g_config:add_bool(true, "ps_enable"))
+
+		self.x = g_config:add_int(0, "ps_x")
+		self.y = g_config:add_int(0, "ps_y")
+		g_config:add_int(0, "ps_x")self.ps_sec:slider_int("x", self.x, 0, g_render:get_screensize().x)
+		g_config:add_int(0, "ps_y")self.ps_sec:slider_int("y", self.y, 0, g_render:get_screensize().y)
+
+		self.ps_color_bg_r = self.draw_sec:slider_int("bg r", g_config:add_int(0, "ps_color_bg_r"), 0, 255)
+		self.ps_color_bg_g = self.draw_sec:slider_int("bg g", g_config:add_int(0, "ps_color_bg_g"), 0, 255)
+		self.ps_color_bg_b = self.draw_sec:slider_int("bg b", g_config:add_int(0, "ps_color_bg_b"), 0, 255)
+		self.ps_color_bg_a = self.draw_sec:slider_int("bg a", g_config:add_int(180, "ps_color_bg_a"), 0, 255)
+
+		self.ps_color_text_r = self.draw_sec:slider_int("text r", g_config:add_int(255, "ps_color_text_r"), 0, 255)
+		self.ps_color_text_g = self.draw_sec:slider_int("text g", g_config:add_int(255, "ps_color_text_g"), 0, 255)
+		self.ps_color_text_b = self.draw_sec:slider_int("text b", g_config:add_int(255, "ps_color_text_b"), 0, 255)
+		self.ps_color_text_a = self.draw_sec:slider_int("text a", g_config:add_int(255, "ps_color_text_a"), 0, 255)
+
+	end,
+
+	rect = function(self, x, y, width, height)
+		return {
+			x = x,
+			y = y,
+			width = width,
+			height = height
+		}
+	end,
+
+	update_keys = function(self, key, state)
+		for i, hotkey in ipairs(self.hotkeys_ordered) do
+			if hotkey.key == key then
+				hotkey.state = state
+			end
+		end
+	end,
+
+	get_state_text_and_color = function(self, hotkey)
+		local state_text = hotkey.state and "[ON]" or "[OFF]"
+		local state_color = hotkey.state and color:new(55, 255, 55, 255) or color:new(255, 55, 55, 255)
+		return state_text, state_color
+	end,
+
+	draw = function(self)
+		if not self.ps_enable:get_value() then return end
+
+		if self.dragging then
+			local pos = g_input:get_cursor_position()
+			self.x:set_int(pos.x - self.drag_x)
+			self.y:set_int(pos.y - self.drag_y)
+		end
+
+		local x = self.x:get_int()
+		local y = self.y:get_int()
+
+		local text_size = g_render:get_text_size(self.title, font, 15)
+		local text_width = text_size.x + 20
+		local tx = x + (self.width - text_width) / 2
+		local bg_color = color:new(self.ps_color_bg_r:get_value(), self.ps_color_bg_g:get_value(), self.ps_color_bg_b:get_value(), self.ps_color_bg_a:get_value())
+		local tx_color = color:new(self.ps_color_text_r:get_value(), self.ps_color_text_g:get_value(), self.ps_color_text_b:get_value(), self.ps_color_text_a:get_value())
+		local count, height = 0, 0
+
+		g_render:filled_box(vec2:new(x, self.y:get_int()), vec2:new(self.width, self.height), bg_color, 10)
+
+		for _, hotkey in pairs(self.hotkeys_ordered) do
+			if hotkey.name then
+				count = count + 1
+				local text = hotkey.name.." ["..hotkey.key.."] "
+				local size = g_render:get_text_size(text, font, 15)
+				local state_size = vec2:new(40, 20)
+
+				g_render:text(vec2:new(x + 10, y + 30 + (count - 1) * 20), tx_color, text, font, 15)
+
+				hotkey.state_rect = self:rect(x + 10 + size.x, y + 28 + (height - 1) * 20, state_size.x, state_size.y)
+
+				local state_text, state_color = self:get_state_text_and_color(hotkey)
+				local state_x = x + 10 + size.x + (state_size.x - g_render:get_text_size(state_text, font, 15).x) / 2
+				local state_y = y + 28 + (count - 1) * 20 + (state_size.y - g_render:get_text_size(state_text, font, 15).y) / 2
+				g_render:text(vec2:new(state_x, state_y), state_color, state_text, font, 15)
+
+				height = std_math.max(height, size.x + state_size.x)
+			end
+		end
+
+		local content_height = count * 20 + 30
+		if content_height > self.height then self.height = height end
+
+		self.width = std_math.max(text_width, height + 20)
+
+		g_render:filled_box(vec2:new(x, self.y:get_int()), vec2:new(self.width, 25), color:new(bg_color.r, bg_color.g, bg_color.b, 255), 10)
+
+		g_render:text(vec2:new(tx + 10, y + 5), tx_color, self.title, font, 15)
+	end,
+
+	set_title = function(self, title)
+		self.title = title
+	end,
+
+	tick = function(self)
+		if not self.ps_enable:get_value() then
+			return
+		end
+		local pos = g_input:get_cursor_position()
+		if g_input:is_key_pressed(e_key.lbutton) then
+			if self:is_point_inside(pos) then
+				self.dragging = true
+				self.drag_x = pos.x - self.x:get_int()
+				self.drag_y = pos.y - self.y:get_int()
+				return true
+			end
+			for i, hotkey in ipairs(self.hotkeys_ordered) do
+				local state_text, _ = self:get_state_text_and_color(hotkey)
+				local state_x = hotkey.state_rect.x + 5
+				local state_y = hotkey.state_rect.y + 3
+				if self:is_cursor_inside_text(pos, state_text, state_x, state_y, font, 15) then
+					hotkey.state = not hotkey.state
+					g_input:send_mouse_key_event(e_mouse_button.left, e_key_state.key_up)
+					break
+				end
+			end
+		else
+			self.dragging = false
+		end
+		self:update_keys()
+	end,
+
+	is_point_inside = function(self, point)
+		return point.x >= self.x:get_int() and point.x <= self.x:get_int() + self.width and point.y >= self.y:get_int() and point.y <= self.y:get_int() + 25
+	end,
+
+	is_cursor_inside_text = function(self, cursorPos, text, x, y, font, fontSize)
+		local textSize = g_render:get_text_size(text, font, fontSize)
+		return cursorPos.x >= x and cursorPos.x <= x + textSize.x and cursorPos.y >= y and cursorPos.y <= y + textSize.y
+	end,
+
+	register = function(self, identifier, name, key)
+		if self.hotkeys_id[identifier] then
+			self.hotkeys_id[identifier].name = name
+			self.hotkeys_id[identifier].key = key
+		else
+			local newHotkey = {
+				identifier = identifier,
+				name = name,
+				key = key,
+				state = false,
+				labels = {},
+			}
+			table.insert(self.hotkeys_ordered, newHotkey)
+			self.hotkeys_id[identifier] = newHotkey
+		end
+	end,
+
+	update = function(self, identifier, options)
+		if self.hotkeys_id[identifier] then
+			if options.name then
+				self.hotkeys_id[identifier].name = options.name
+			end
+			if options.key then
+				self.hotkeys_id[identifier].key = options.key
+			end
+		end
+	end,
+
+})
+--------------------------------------------------------------------------------
 
 -- Callbacks
 --------------------------------------------------------------------------------
 
-cheat.on("features.run", function()
-
-	-- clear caches
-	CACHED_ITEMS = {}
-
-end)
-
 local x = class({
+	VERSION = "1.0",
+	permashow = permashow:new(),
+	buffcache = buffcache:new(),
+	helper = helper:new(buffcache),
+	math = math:new(helper, buffcache),
+	objects = objects:new(helper, math),
+	database = database:new(helper),
+	damagelib = damagelib:new(helper, math, database, buffcache),
+	target_selector = target_selector:new(helper, math, objects, damagelib),
+
 	init = function(self)
-		-- constructor code goes here
+
+		cheat.on("features.pre_run", function()
+			self.target_selector:tick()
+		end)
+
+		cheat.on("renderer.draw", function()
+			self.permashow:draw()
+			self.target_selector:draw()
+		end)
+
+		cheat.on("features.run", function()
+			self.permashow:tick()
+		end)
+
 	end,
 
-	VERSION = "1.0",
-	target_selector = target_selector:new()
 })
 
 return x
