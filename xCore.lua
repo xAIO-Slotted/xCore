@@ -166,8 +166,8 @@ local helper = class({
 
 	buffcache = nil,
 
-	init = function(self)
-		self.buffcache = buffcache(self)
+	init = function(self, buffcache)
+		self.buffcache = buffcache
 	end,
 
 	is_melee = function(self, unit)
