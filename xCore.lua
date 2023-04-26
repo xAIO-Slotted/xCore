@@ -39,11 +39,11 @@ end
 
 local math = class({
 
-	helper = nil,
+	xHelper = nil,
 	buffcache = nil,
 
-	init = function(self, helper, buff_cache)
-		self.helper = helper
+	init = function(self, xHelper, buff_cache)
+		self.xHelper = xHelper
 		self.buffcache = buff_cache
 	end,
 
@@ -71,7 +71,7 @@ local math = class({
 	end,
 
 	in_aa_range = function(self, unit, raw)
-		local range = self.helper:get_aa_range()
+		local range = self.xHelper:get_aa_range()
 		local hitbox = unit:get_bounding_radius() or 80
 
 		if myHero.champion_name == "Aphelios" and unit:is_hero() and self.buffcache:has_buff(unit, "aphelioscalibrumbonusrangedebuff") then
@@ -85,7 +85,7 @@ local math = class({
 		elseif myHero.champ_name == "Karthus" then
 			range = 1035
 		end
-		if raw and not self.helper:is_melee(myHero) then
+		if raw and not self.xHelper:is_melee(myHero) then
 			hitbox = 0
 		end
 		local dist = self:dis_sq(myHero.position, unit.position)
@@ -101,18 +101,18 @@ local math = class({
 
 local objects = class({
 
-	helper = nil,
+	xHelper = nil,
 	math = nil,
 
-	init = function(self, helper, math)
-		self.helper = helper
+	init = function(self, xHelper, math)
+		self.xHelper = xHelper
 		self.math = math
 	end,
 
 	get_enemy_champs = function(self, range)
 		local enemy_champs = {}
 		for i, unit in ipairs(features.entity_list:get_enemies()) do
-			if self.helper:is_valid(unit) and (range and self.math:dis_sq(myHero.position, unit.position) <= range ^ 2 or self.math:in_aa_range(unit, true)) then
+			if self.xHelper:is_valid(unit) and (range and self.math:dis_sq(myHero.position, unit.position) <= range ^ 2 or self.math:in_aa_range(unit, true)) then
 				table.insert(enemy_champs, unit)
 			end
 		end
@@ -152,7 +152,7 @@ local buffcache = class({
 -- Helper
 --------------------------------------------------------------------------------
 
-local helper = class({
+local xHelper = class({
 
 	HYBRID_RANGED = {"Elise", "Gnar", "Jayce", "Kayle", "Nidalee", "Zeri"},
 	INVINCIBILITY_BUFFS= {
@@ -185,7 +185,7 @@ local helper = class({
 
 	is_invincible = function(self, unit)
 		for _, buff in ipairs(features.buff_cache:get_all_buffs(unit.index)) do
-			if buff and self.buffcache:get_duration(buff) > 0 and buff:get_amount() > 0 then
+			if buff and self.buffcache:get_duration(unit, buff.name) > 0 and buff:get_amount() > 0 then
 				local invincibility_buff = self.INVINCIBILITY_BUFFS[buff.name]
 				if invincibility_buff ~= nil then
 					if invincibility_buff == false and unit.health / unit.max_health < 0.05 then
@@ -213,7 +213,7 @@ local helper = class({
 
 	is_alive = function(self, unit)
 		return unit and not unit:is_invalid_object() and unit:is_visible()
-				and unit:is_alive() and unit:is_targetable()
+				and unit:is_alive() and unit:is_targetable() and not self.buffcache:has_buff(unit, "sionpassivezombie")
 	end,
 
 	is_valid = function(self, unit)
@@ -234,7 +234,7 @@ local helper = class({
 
 local damagelib = class({
 
-	helper = nil,
+	xHelper = nil,
 	math = nil,
 	database = nil,
 	buffcache = nil,
@@ -248,7 +248,7 @@ local damagelib = class({
 	},
 	ITEM_PASSIVES = { -- TODO: wait for inventory api to be added.
 		[3153] = function(self, args) local source = args.source -- Blade of the Ruined King
-			local mod = self.functions.helper:is_melee(source) and 0.12 or 0.08
+			local mod = self.functions.xHelper:is_melee(source) and 0.12 or 0.08
 			args.raw_physical = args.raw_physical + std_math.min(
 					60, std_math.max(15, mod * args.unit.health))
 		end,
@@ -293,7 +293,7 @@ local damagelib = class({
 			args.raw_physical = args.raw_physical + 5
 		end,
 		[3748] = function(self, args) local source = args.source -- Titanic Hydra
-			local mod = self.functions.helper:is_melee(args.source) and {4, 0.015} or {3, 0.01125}
+			local mod = self.functions.xHelper:is_melee(args.source) and {4, 0.015} or {3, 0.01125}
 			local damage = mod[1] + mod[2] * args.source.max_health
 			args.raw_physical = args.raw_physical + damage
 		end,
@@ -305,8 +305,8 @@ local damagelib = class({
 	},
 
 
-	init = function(self, helper, math, database, buffcache)
-		self.helper = helper
+	init = function(self, xHelper, math, database, buffcache)
+		self.xHelper = xHelper
 		self.math = math
 		self.database = database
 		self.buffcache = buffcache
@@ -314,20 +314,17 @@ local damagelib = class({
 
 	check_for_passives = function(self, args)
 		local source = args.source
-
 		local buff = self.buffcache:get_buff(source, "6672buff") -- Kraken Slayer
 		if buff and buff:get_amount() == 3 then
 			args.true_damage = args.true_damage + 50 +
 					0.4 * source:get_bonus_attack_damage()
 		end
-
 		if self.buffcache:has_buff(source, "3504Buff") then -- Ardent Censer
 			args.raw_magical = args.raw_magical + 4.12 + 0.88 * args.unit.level
 		end
-
 		if self.buffcache:has_buff(source, "6632buff") then -- Divine Sunderer
 			args.raw_physical = args.raw_physical + 1.25 *
-					source:get_attack_damage() + (self.functions.helper:is_melee(source)
+					source:get_attack_damage() + (self.functions.xHelper:is_melee(source)
 					and 0.06 or 0.03) * args.unit.max_health
 		end
 
@@ -349,10 +346,12 @@ local damagelib = class({
 			args.raw_physical = args.raw_physical + 2 * source:get_attack_damage()
 		end
 
-		if self.buffcache:get_buff(source, "item6664counter"):get_amount() == 100 then -- Turbo Chemtank
-			local damage = 35.29 + 4.71 * source.level + 0.01 *
-					source.max_health + 0.03 * source.movement_speed
-			args.raw_magical = args.raw_magical + damage * 1.3
+		if self.buffcache:get_buff(source, "item6664counter") then 
+			if self.buffcache:get_buff(source, "item6664counter"):get_amount() == 100 then -- Turbo Chemtank -- line 350
+				local damage = 35.29 + 4.71 * source.level + 0.01 *
+						source.max_health + 0.03 * source.movement_speed
+				args.raw_magical = args.raw_magical + damage * 1.3
+			end
 		end
 
 		local buff = self.buffcache:get_buff(source, "itemstatikshankcharge")
@@ -366,25 +365,24 @@ local damagelib = class({
 	end,
 
 	calc_aa_dmg = function(self, source, target)
-		local name = source.champion_name
+		local idx = target.index
+		local name = source.champion_name.text
 		local physical = source:get_attack_damage()
+		local args = {raw_magical = 0, raw_physical = physical,true_damage = 0, source = source, unit = features.entity_list:get_by_index(idx)}
 		if name == "Corki" and physical > 0 then return
-		self:calc_mixed_dmg(source, target, physical) end
-		local args = {raw_magical = 0, raw_physical = physical,
-					  true_damage = 0, source = source, unit = target}
-
-		local items = {}
-		for i = 6, 12 do
-			local slot = i
-			local item = source:get_spell_book():get_spell_slot(slot)
-			items[#items + 1] = item
+			self:calc_mixed_dmg(source, features.entity_list:get_by_index(idx), physical) end
+			local items = {}
+			for i = 6, 12 do
+				local slot = i
+				local item = source:get_spell_book():get_spell_slot(slot)
+				items[#items + 1] = item
 		end
 
-		self:check_for_passives(self, args) -- TODO: check if this is correct
+		self:check_for_passives(args) -- TODO: check if this is correct
 		if self.CHAMP_PASSIVES[name] then self.CHAMP_PASSIVES[name](self, args) end
 
-		local magical = self:calc_ap_dmg(source, target, args.raw_magical)
-		local physical = self:calc_ad_dmg(source, target, args.raw_physical)
+		local magical = self:calc_ap_dmg(source, features.entity_list:get_by_index(idx), args.raw_magical)
+		local physical = self:calc_ad_dmg(source, features.entity_list:get_by_index(idx), args.raw_physical)
 
 		return magical + physical + args.true_damage
 	end,
@@ -399,7 +397,7 @@ local damagelib = class({
 		return helper.calculate_damage(amount, target.index, false)
 	end,
 
-	calc_ap_dmg = function(self, source, target, amount)
+	calc_ad_dmg = function(self, source, target, amount)
 		return helper.calculate_damage(amount, target.index, true)
 	end,
 
@@ -481,10 +479,10 @@ local damagelib = class({
 
 local database = class({
 
-	helper = nil,
+	xHelper = nil,
 
-	init = function(self, helper)
-		self.helper = helper
+	init = function(self, xHelper)
+		self.xHelper = xHelper
 	end,
 
 	DASH_LIST = {
@@ -594,13 +592,13 @@ local database = class({
 			{ slot = "R", stage = 1, damage_type = 1,
 			  damage = function(self, source, target, level)
 				  local dmg = (({ 30, 45, 60 })[level] + (0.15 * source:get_bonus_attack_damage()) * (1.10 + (0.06 * std_math.min(std_math.floor(source.position:dist_to(target.position) / 100), 15)))) +
-						  (({ 25, 30, 35 })[level] / 100 * self.helper:get_missing_hp(target));
+						  (({ 25, 30, 35 })[level] / 100 * self.xHelper:get_missing_hp(target));
 				  return dmg
 			  end },
 			{ slot = "R", stage = 2, damage_type = 1,
 			  damage = function(self, source, target, level)
 				  local dmg = (({ 24, 36, 48 })[level] + (0.12 * source:get_bonus_attack_damage()) * (1.10 + (0.06 * std_math.min(std_math.floor(source.position:dist_to(target.position) / 100), 15)))) +
-						  (({ 20, 24, 28 })[level] / 100 * self.helper:get_missing_hp(target));
+						  (({ 20, 24, 28 })[level] / 100 * self.xHelper:get_missing_hp(target));
 				  if target:is_ai() then return std_math.min(1200, dmg) end
 				  ;
 				  return dmg
@@ -677,7 +675,7 @@ end
 
 local target_selector = class({
 
-	helper = nil,
+	xHelper = nil,
 	math = nil,
 	objects = nil,
 	damagelib = nil,
@@ -701,9 +699,11 @@ local target_selector = class({
 	weight_prio = 0,
 	weight_hp = 0,
 
-	init = function(self, helper, math, objects, damagelib)
+	
 
-		self.helper = helper
+	init = function(self, xHelper, math, objects, damagelib)
+
+		self.xHelper = xHelper
 		self.math = math
 		self.objects = objects
 		self.damagelib = damagelib
@@ -731,6 +731,7 @@ local target_selector = class({
 		self.weight_hp = self.weight_sec:slider_int("health", g_config:add_int(15, "weight_health"), 0, 100, 1)
 
 	end,
+
 
 	FORCED_TARGET = nil,
 	PRIORITY_LIST = {
@@ -778,14 +779,20 @@ local target_selector = class({
 	get_cache = function(self, range)
 		return self.TARGET_CACHE[range]
 	end,
-
 	refresh_targets = function(self, range)
 		if not self.TARGET_CACHE[range] then
 			self.TARGET_CACHE[range] = {enemies = {}}
 		end
-
-		local enemies = self.objects:get_enemy_champs(range):Where(function(e) return not self.helper:is_invincible(e) end)
-
+	
+		local all_enemies = self.objects:get_enemy_champs(range)
+		local enemies = {}
+	
+		for _, enemy in ipairs(all_enemies) do
+			if not self.xHelper:is_invincible(enemy) then
+				table.insert(enemies, enemy)
+			end
+		end
+	
 		for i = 1, #enemies do
 			local weight = {total = 0}
 			for j = 1, #enemies do
@@ -795,14 +802,14 @@ local target_selector = class({
 					end
 				end
 			end
-
+	
 			local target = self.TARGET_CACHE[range].enemies[i] or {}
 			local new_weight = {}
-
+	
 			local d = self.math:dis_sq(myHero.position, enemies[i].position)
 			local w = 10000 / (1 + std_math.sqrt(d))
-			if not self.helper:is_melee(enemies[i]) then w = w * self.weight_dis:get_value() / 10 else w = w * (self.weight_dis:get_value() / 10 + 1) end
-
+			if not self.xHelper:is_melee(enemies[i]) then w = w * self.weight_dis:get_value() / 10 else w = w * (self.weight_dis:get_value() / 10 + 1) end
+	
 			local factor = { damage = self.weight_dmg:get_value(), prio = self.weight_prio:get_value() / 10, health = self.weight_hp:get_value() / 10 }
 			new_weight.damage = (self.damagelib:calc_dmg(myHero, enemies[i], 100) / (1 + enemies[i].health) * 20) * factor.damage
 			local mod = {1, 1.5, 1.75, 2, 2.5}
@@ -815,9 +822,9 @@ local target_selector = class({
 				self.TARGET_CACHE[range].enemies[i] = target
 			end
 		end
-
+	
 		table.sort(self.TARGET_CACHE[range].enemies, function(a, b) return a.weight.total > b.weight.total end)
-
+	
 		if not self.FORCED_TARGET == nil then
 			local target = self.FORCED_TARGET
 			local new_weight = {}
@@ -857,7 +864,7 @@ local target_selector = class({
 			local lowestDistance = std_math.huge
 			local maxDistance = 70
 			for i, enemy in ipairs(features.entity_list:get_enemies()) do
-				if self.helper:is_valid(enemy) then
+				if self.xHelper:is_valid(enemy) then
 					local enemyVec2 = enemy.position:to_screen()
 					if enemyVec2 ~= nil and enemyVec2.y > 25 then
 						enemyVec2.y = enemyVec2.y - 25
@@ -927,6 +934,100 @@ local target_selector = class({
 -- Permashow
 --------------------------------------------------------------------------------
 
+local debug = class({
+	add = menu.get_main_window():push_navigation("debug", 10000),
+	nav = menu.get_main_window():find_navigation("debug"),
+
+	Colors = {
+		solid = {
+			white = color:new(255, 255, 255),
+			red = color:new(255, 0, 0),
+			orange = color:new(255, 127, 0),
+			yellow = color:new(255, 255, 0),
+			green = color:new(0, 255, 0),
+			cyan = color:new(0, 255, 255),
+			blue = color:new(0, 0, 255),
+			purple = color:new(143, 0, 255)
+		},
+		transparent = {
+			white = color:new(255, 255, 255, 130),
+			red = color:new(255, 0, 0, 130),
+			orange = color:new(255, 127, 0, 130),
+			yellow = color:new(255, 255, 0, 130),
+			green = color:new(0, 255, 0, 130),
+			cyan = color:new(0, 255, 255, 130),
+			blue = color:new(0, 0, 255, 130),
+			purple = color:new(143, 0, 255, 200)
+		}
+	},
+
+
+	init = function(self)
+		print("-=-=-=debug init")
+		
+		self.Last_dbg_msg_time = g_time
+		self.LastMsg = "init"
+		self.LastMsg1 = "init"
+		self.LastMsg2 = "init"
+
+		self.dbg_sec = self.nav:add_section("debug")
+		self.draw_sec = self.nav:add_section("color settings")
+		self.dbg_enable = self.dbg_sec:checkbox("enabled", g_config:add_bool(true, "dbg_enable"))
+
+		Res = g_render:get_screensize()
+		local dbg_lvl = 0
+		local posX = (Res.x / 2) - 100
+		local posY = Res.y - 260
+
+		self.Debug_level = g_config:add_int(dbg_lvl, "dbglvl")
+
+		self.x = g_config:add_int(posX, "ps_x")
+		self.y = g_config:add_int(posY, "ps_y")
+
+		g_config:add_int(dbg_lvl, "dbglvl")self.dbg_sec:slider_int("Debuglvl", self.Debug_level, 0, 6)
+		g_config:add_int(posX, "ps_x")self.dbg_sec:slider_int("x", self.x, 0, Res.x)
+		g_config:add_int(posY, "ps_y")self.dbg_sec:slider_int("y", self.y, 0, Res.y)
+
+	end,
+
+	Print = function(self, str, level)
+		level = level or 1
+		str = tostring(str)
+
+		if level <= self.Debug_level:get_int() then
+		  print("log: " .. " " .. str)
+		  if str ~= self.LastMsg then 
+			self.LastMsg2 = self.LastMsg1
+			self.LastMsg1 = self.LastMsg 
+			self.LastMsg = str
+		  end
+		end
+	end,
+
+	draw = function(self)
+		if self.Last_dbg_msg_time == -1 then self.Last_dbg_msg_time = g_time return
+		end -- skip bad time
+		if g_time - self.Last_dbg_msg_time >= 30.15 then return end -- fade out
+		self.Last_dbg_msg_time = g_time
+		local pos = vec2:new((Res.x / 2) - 100, Res.y - 260)
+		local pos1 = vec2:new((Res.x / 2) - 100, Res.y - 290)
+		local pos2 = vec2:new((Res.x / 2) - 100, Res.y - 320)
+	
+		g_render:text(pos, self.Colors.solid.white, self.LastMsg, font, 30)
+		g_render:text(pos1, self.Colors.solid.white, self.LastMsg1, font, 30)
+		g_render:text(pos2, self.Colors.solid.white, self.LastMsg2, font, 30)
+	
+	end
+	
+})
+
+
+
+--------------------------------------------------------------------------------
+
+-- Permashow
+--------------------------------------------------------------------------------
+
 local permashow = class({
 	hotkeys_ordered = {},
 	hotkeys_id = {},
@@ -947,7 +1048,7 @@ local permashow = class({
 
 	x = 0,
 	y = 0,
-
+	  
 	ps_color_bg_r = 0,
 	ps_color_bg_g = 0,
 	ps_color_bg_b = 0,
@@ -1126,6 +1227,10 @@ local permashow = class({
 	end,
 
 })
+
+
+
+
 --------------------------------------------------------------------------------
 
 -- Callbacks
@@ -1135,12 +1240,13 @@ local x = class({
 	VERSION = "1.0",
 	permashow = permashow:new(),
 	buffcache = buffcache:new(),
-	helper = helper:new(buffcache),
-	math = math:new(helper, buffcache),
-	objects = objects:new(helper, math),
-	database = database:new(helper),
-	damagelib = damagelib:new(helper, math, database, buffcache),
-	target_selector = target_selector:new(helper, math, objects, damagelib),
+	helper = xHelper:new(buffcache),
+	math = math:new(xHelper, buffcache),
+	objects = objects:new(xHelper, math),
+	debug = debug:new(),
+	database = database:new(xHelper),
+	damagelib = damagelib:new(xHelper, math, database, buffcache),
+	target_selector = target_selector:new(xHelper, math, objects, damagelib),
 
 	init = function(self)
 
@@ -1150,6 +1256,7 @@ local x = class({
 
 		cheat.on("renderer.draw", function()
 			self.permashow:draw()
+			self.debug:draw()
 			self.target_selector:draw()
 		end)
 
@@ -1160,5 +1267,6 @@ local x = class({
 	end,
 
 })
+
 
 return x
