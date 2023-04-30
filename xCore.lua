@@ -1107,6 +1107,11 @@ local permashow = class({
 					if time_diff >= 0.3 then
 						hotkey.state = not hotkey.state
 						hotkey.last_update = g_time
+
+					-- Toggle the associated config_var
+						if hotkey.config_var then
+							hotkey.config_var:set_bool(not hotkey.config_var:get_bool())
+						end
 					end
 				end
 			else
@@ -1214,12 +1219,15 @@ local permashow = class({
 		return cursorPos.x >= x and cursorPos.x <= x + textSize.x and cursorPos.y >= y and cursorPos.y <= y + textSize.y
 	end,
 
-	register = function(self, identifier, name, key)
+	register = function(self, identifier, name, key, is_toggle, cfg)
+		local cgf = cfg or nil
+		local is_toggle = is_toggle or false
 		print("enterting register")
 		if self.hotkeys_id[identifier] then
 			print("we already have identifier " .. identifier)
 			self.hotkeys_id[identifier].name = name
 			self.hotkeys_id[identifier].key = key
+			self.hotkeys_id[identifier].isToggle = true
 		else
 			print("registering " .. identifier)
 			local newHotkey = {
@@ -1228,7 +1236,8 @@ local permashow = class({
 				key = key,
 				state = false,
 				labels = {},
-                isToggle = false,
+                isToggle = is_toggle,
+				config_var = cfg,
 				last_update = g_time
 			}
 			print("inserting " .. identifier)
@@ -1237,26 +1246,6 @@ local permashow = class({
 			self.hotkeys_id[identifier] = newHotkey
 		end
 	end,
-	register_toggle = function(self, identifier, name, key)
-        if self.hotkeys_id[identifier] then
-            self.hotkeys_id[identifier].name = name
-            self.hotkeys_id[identifier].key = key
-            self.hotkeys_id[identifier].isToggle = true
-        else
-            local newHotkey = {
-                identifier = identifier,
-                name = name,
-                key = key,
-                state = false,
-                labels = {},
-                isToggle = true,
-				last_update = g_time
-            }
-            table.insert(self.hotkeys_ordered, newHotkey)
-            self.hotkeys_id[identifier] = newHotkey
-        end
-    end,
-
 	update = function(self, identifier, options)
 		print("updating " .. identifier)
 		if self.hotkeys_id[identifier] then
