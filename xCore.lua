@@ -416,20 +416,23 @@ local damagelib = class({
 
 			if level <= 0 then return 0 end
 			if level > 5 then level = 5 end
-
+			
+					
+					
 			if self.database.DMG_LIST[source.champion_name.text:lower()] then
 				for _, spells in ipairs(self.database.DMG_LIST[source.champion_name.text:lower()]) do
 					if spells.slot == spell then
 						table.insert(cache, spells)
 					end
 				end
-
+				
 				if stage > #cache then stage = #cache end
-
+				
 				for v = #cache, 1, -1 do
 					local spells = cache[v]
 					if spells.stage == stage then
-						return self:calc_dmg(self, source, target, spells.damage(source, target, level))
+						local dmg = spells.damage(self, source, target, level)
+						return self:calc_dmg(source, target, dmg)
 					end
 				end
 			end
@@ -582,11 +585,10 @@ local database = class({
 	},
 
 	DMG_LIST = {
-		Jinx = { -- 13.6
+		jinx = { -- 13.6
 			{ slot = "Q", stage = 1, damage_type = 1,
 			  damage = function(self, source, target, level) return 0.1 * source:get_attack_damage() end },
-			{ slot = "W", stage = 1, damage_type = 1,
-			  damage = function(self, source, target, level) return ({ 10, 60, 110, 160, 210 })[level] + 1.6 * source:get_attack_damage() end },
+			{ slot = "W", stage = 1, damage_type = 1, damage = function(self, source, target, level) return ({ 10, 60, 110, 160, 210 })[level] + 1.6 * source:get_attack_damage() end },
 			{ slot = "E", stage = 1, damage_type = 2,
 			  damage = function(self, source, target, level) return ({ 70, 120, 170, 220, 270 })[level] + source:get_ability_power() end },
 			{ slot = "R", stage = 1, damage_type = 1,
@@ -605,7 +607,7 @@ local database = class({
 			  end },
 		},
 
-		Sion = { -- 13.6
+		sion = { -- 13.6
 			{ slot = "Q", stage = 1, damage_type = 1,
 			  damage = function(self, source, target, level) return ({ 40, 60, 80, 100, 120 })[level] +
 					  ({ 45, 52, 60, 67, 75 })[level] / 100 * source:get_attack_damage()
@@ -714,7 +716,7 @@ local target_selector = class({
 		self.weight_sec = self.nav:add_section("weight")
 
 		self.ts_enabled = self.ts_sec:checkbox("enabled", g_config:add_bool(true, "ts_enabled"))
-
+		print("inti: ts_enabled: " .. tostring(self.ts_enabled))
 		self.focus_target = self.ts_sec:checkbox("click to focus", g_config:add_bool(true, "focus_target"))
 
 		self.draw_target = self.drawings_sec:checkbox("visualize targets", g_config:add_bool(true, "draw_targets"))
@@ -731,8 +733,9 @@ local target_selector = class({
 		self.weight_hp = self.weight_sec:slider_int("health", g_config:add_int(15, "weight_health"), 0, 100, 1)
 
 	end,
-
-
+	GET_STATUS = function(self)
+		return self.ts_enabled:get_value()
+	end,
 	FORCED_TARGET = nil,
 	PRIORITY_LIST = {
 		Aatrox = 3, Ahri = 4, Akali = 4, Akshan = 5, Alistar = 1,
@@ -839,6 +842,7 @@ local target_selector = class({
 	end,
 
 	get_main_target = function(self, range)
+		range = range or 9999999
 		self:refresh_targets(range)
 		return self.TARGET_CACHE[range].enemies[1].target
 	end,
@@ -916,14 +920,14 @@ local target_selector = class({
 		if not self.ts_enabled:get_value() then return end
 		self:force_target()
 		local forced = self:get_forced_target()
-		local target = self:get_main_target(9999999)
+		local target = self:get_main_target()
 		if forced then
 			target = forced
 		end
 		if target ~= nil then
-			features.target_selector:force_target(target.index)
+			-- features.target_selector:force_target(target.index)
 		else
-			features.target_selector:force_target(-1)
+			-- features.target_selector:force_target(-1)
 		end
 	end
 
@@ -963,7 +967,6 @@ local debug = class({
 
 
 	init = function(self)
-		print("-=-=-=debug init")
 		
 		self.Last_dbg_msg_time = g_time
 		self.LastMsg = "init"
@@ -1005,10 +1008,10 @@ local debug = class({
 	end,
 
 	draw = function(self)
-		if self.Last_dbg_msg_time == -1 then self.Last_dbg_msg_time = g_time return
-		end -- skip bad time
-		if g_time - self.Last_dbg_msg_time >= 30.15 then return end -- fade out
-		self.Last_dbg_msg_time = g_time
+		if self.Last_dbg_msg_time == -1 then return false end -- skip bad time
+		if g_time - self.Last_dbg_msg_time >= 10 then return end -- fade out
+
+		
 		local pos = vec2:new((Res.x / 2) - 100, Res.y - 260)
 		local pos1 = vec2:new((Res.x / 2) - 100, Res.y - 290)
 		local pos2 = vec2:new((Res.x / 2) - 100, Res.y - 320)
@@ -1091,12 +1094,25 @@ local permashow = class({
 			height = height
 		}
 	end,
-
-	update_keys = function(self, key, state)
-		for i, hotkey in ipairs(self.hotkeys_ordered) do
-			if hotkey.key == key then
-				hotkey.state = state
+	update_keys = function(self)
+		local key = -1
+		for _, hotkey in ipairs(self.hotkeys_ordered) do
+			if #hotkey.key == 1 then key = e_key[string.upper(hotkey.key)]
+			else key = e_key[hotkey.key] end
+			local key_pressed = g_input:is_key_pressed(key)
+			
+			if hotkey.isToggle then
+				if key_pressed ~= hotkey.prev_key_pressed and key_pressed then
+					local time_diff = g_time - hotkey.last_update
+					if time_diff >= 0.3 then
+						hotkey.state = not hotkey.state
+						hotkey.last_update = g_time
+					end
+				end
+			else
+				hotkey.state = key_pressed
 			end
+			hotkey.prev_key_pressed = key_pressed
 		end
 	end,
 
@@ -1158,7 +1174,7 @@ local permashow = class({
 	end,
 
 	set_title = function(self, title)
-		self.title = title
+		self.title = title -- line 1161
 	end,
 
 	tick = function(self)
@@ -1199,23 +1215,50 @@ local permashow = class({
 	end,
 
 	register = function(self, identifier, name, key)
+		print("enterting register")
 		if self.hotkeys_id[identifier] then
+			print("we already have identifier " .. identifier)
 			self.hotkeys_id[identifier].name = name
 			self.hotkeys_id[identifier].key = key
 		else
+			print("registering " .. identifier)
 			local newHotkey = {
 				identifier = identifier,
 				name = name,
 				key = key,
 				state = false,
 				labels = {},
+                isToggle = false,
+				last_update = g_time
 			}
+			print("inserting " .. identifier)
 			table.insert(self.hotkeys_ordered, newHotkey)
+			print("setting " .. identifier)
 			self.hotkeys_id[identifier] = newHotkey
 		end
 	end,
+	register_toggle = function(self, identifier, name, key)
+        if self.hotkeys_id[identifier] then
+            self.hotkeys_id[identifier].name = name
+            self.hotkeys_id[identifier].key = key
+            self.hotkeys_id[identifier].isToggle = true
+        else
+            local newHotkey = {
+                identifier = identifier,
+                name = name,
+                key = key,
+                state = false,
+                labels = {},
+                isToggle = true,
+				last_update = g_time
+            }
+            table.insert(self.hotkeys_ordered, newHotkey)
+            self.hotkeys_id[identifier] = newHotkey
+        end
+    end,
 
 	update = function(self, identifier, options)
+		print("updating " .. identifier)
 		if self.hotkeys_id[identifier] then
 			if options.name then
 				self.hotkeys_id[identifier].name = options.name
