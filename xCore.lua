@@ -1,7 +1,7 @@
 XCORE_VERSION = "1.0.1"
 XCORE_LUA_NAME = "xCore.lua"
 XCORE_REPO_BASE_URL = "https://raw.githubusercontent.com/xAIO-Slotted/xCore/main/"
-XCORE_REPO_SCRIPT_PATH = Jinx_REPO_BASE_URL .. Jinx_LUA_NAME
+XCORE_REPO_SCRIPT_PATH = XCORE_REPO_BASE_URL .. XCORE_LUA_NAME
 local std_math = math
 
 --------------------------------------------------------------------------------
@@ -30,7 +30,7 @@ end
 
 local function replace_current_file_with_latest_version(latest_version_script)
     local resources_path = cheat:get_resource_path()
-    local current_file_path = resources_path:gsub("resources$", "lua/lib" .. XCORE_LUA_NAME)
+    local current_file_path = resources_path:gsub("resources$", "lua//lib" .. XCORE_LUA_NAME)
 
     local file, errorMessage = io.open(current_file_path, "w")
 
@@ -1378,6 +1378,6 @@ local x = class({
 })
 
 
-print("-==--=-=-=-==--=-=-==--=-=-=-=-=")
+print("-==--=-=-=-= X core Updater: =--=-=-==--=-=-=-=-=")
 check_for_update(x)
 return x
