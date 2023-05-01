@@ -1,4 +1,4 @@
-XCORE_VERSION = "1.0.1"
+XCORE_VERSION = "1.0.2"
 XCORE_LUA_NAME = "xCore.lua"
 XCORE_REPO_BASE_URL = "https://raw.githubusercontent.com/xAIO-Slotted/xCore/main/"
 XCORE_REPO_SCRIPT_PATH = XCORE_REPO_BASE_URL .. XCORE_LUA_NAME
@@ -13,8 +13,13 @@ local myHero = g_local
 
 
 local function fetch_remote_version_number()
-    local command = "curl -s -H 'Cache-Control: no-cache, no-store, must-revalidate' " .. XCORE_REPO_SCRIPT_PATH
-    local handle = io.popen(command)
+	local command = "curl -s -H 'Cache-Control: no-cache, no-store, must-revalidate' " .. XCORE_REPO_SCRIPT_PATH
+    
+	local handle = io.popen(command)
+    if not handle then
+        print("Failed to fetch the remote version number.")
+        return nil
+    end
     local content = handle:read("*a")
     handle:close()
 
@@ -47,10 +52,15 @@ end
 
 local function check_for_update(x)
    local remote_version = fetch_remote_version_number()
-   x.debug:Print("local version: " .. XCORE_VERSION .. " remote version: " .. remote_version, 0)
+   x.debug:Print("xCore: local version: " .. XCORE_VERSION .. " remote version: " .. remote_version, 1)
+   
    if remote_version and remote_version > XCORE_VERSION then
       local command = "curl -s " .. XCORE_REPO_SCRIPT_PATH
       local handle = io.popen(command)
+	  if not handle then
+        print("Failed to fetch the remote version number.")
+        return nil
+      end
       local latest_version_script = handle:read("*a")
       handle:close()
   
