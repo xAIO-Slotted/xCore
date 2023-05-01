@@ -1,11 +1,74 @@
-VERSION = "1.0.1"
+XCORE_VERSION = "1.0.1"
+XCORE_LUA_NAME = "xCore.lua"
+XCORE_REPO_BASE_URL = "https://raw.githubusercontent.com/xAIO-Slotted/xCore/main/"
+XCORE_REPO_SCRIPT_PATH = Jinx_REPO_BASE_URL .. Jinx_LUA_NAME
 local std_math = math
+
 --------------------------------------------------------------------------------
 
 local font = 'corbel'
 local myHero = g_local
 
 --------------------------------------------------------------------------------
+
+
+local function fetch_remote_version_number()
+    local command = "curl -s -H 'Cache-Control: no-cache, no-store, must-revalidate' " .. XCORE_REPO_SCRIPT_PATH
+    local handle = io.popen(command)
+    local content = handle:read("*a")
+    handle:close()
+
+    if content == "" then
+        print("Failed to fetch the remote version number.")
+        return nil
+    end
+
+    local remote_version = content:match("VERSION%s*=%s*\"(%d+%.%d+%.%d+)\"")
+
+    return remote_version
+end
+
+local function replace_current_file_with_latest_version(latest_version_script)
+    local resources_path = cheat:get_resource_path()
+    local current_file_path = resources_path:gsub("resources$", "lua/lib" .. XCORE_LUA_NAME)
+
+    local file, errorMessage = io.open(current_file_path, "w")
+
+    if not file then
+        print("Failed to open the current file for writing. Error: " .. errorMessage)
+        return false
+    end
+
+    file:write(latest_version_script)
+    file:close()
+
+    return true
+end
+
+local function check_for_update(x)
+   local remote_version = fetch_remote_version_number()
+   x.debug:Print("local version: " .. XCORE_VERSION .. " remote version: " .. remote_version, 0)
+   if remote_version and remote_version > XCORE_VERSION then
+      local command = "curl -s " .. XCORE_REPO_SCRIPT_PATH
+      local handle = io.popen(command)
+      local latest_version_script = handle:read("*a")
+      handle:close()
+  
+      if latest_version_script then
+          if replace_current_file_with_latest_version(latest_version_script) then
+            x.debug:Print("Please click reload lua ", 0)
+			x.debug:Print("Successfully updated " .. XCORE_LUA_NAME .. " to version " .. remote_version .. ".", 0)
+            x.debug:Print("Please click reload lua  ", 0)
+              -- You may need to restart the program to use the updated script
+          else
+			x.debug:Print("Failed to update " .. XCORE_LUA_NAME .. ".", 0)
+          end
+      end
+  else
+	x.debug:Print("You are running the latest version of " .. XCORE_LUA_NAME .. ".", 0)
+  end
+end
+
 
 local function class(properties, ...)
 	local cls = {}
@@ -1314,4 +1377,7 @@ local x = class({
 
 })
 
+
+print("-==--=-=-=-==--=-=-==--=-=-=-=-=")
+check_for_update(x)
 return x
