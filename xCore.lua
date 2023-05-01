@@ -213,7 +213,7 @@ local xHelper = class({
 
 	is_alive = function(self, unit)
 		return unit and not unit:is_invalid_object() and unit:is_visible()
-				and unit:is_alive() and unit:is_targetable() and not self.buffcache:has_buff(unit, "sionpassivezombie")
+				and unit:is_alive() and unit:is_targetable() and not self.buffcache:has_buff(unit, "sionpassivezombie") and not unit:get_object_name():lower():find("corpse")
 	end,
 
 	is_valid = function(self, unit)
@@ -716,7 +716,7 @@ local target_selector = class({
 		self.weight_sec = self.nav:add_section("weight")
 
 		self.ts_enabled = self.ts_sec:checkbox("enabled", g_config:add_bool(true, "ts_enabled"))
-		print("inti: ts_enabled: " .. tostring(self.ts_enabled))
+
 		self.focus_target = self.ts_sec:checkbox("click to focus", g_config:add_bool(true, "focus_target"))
 
 		self.draw_target = self.drawings_sec:checkbox("visualize targets", g_config:add_bool(true, "draw_targets"))
@@ -844,6 +844,7 @@ local target_selector = class({
 	get_main_target = function(self, range)
 		range = range or 9999999
 		self:refresh_targets(range)
+		if #self.TARGET_CACHE[range].enemies == 0 then return nil end
 		return self.TARGET_CACHE[range].enemies[1].target
 	end,
 
@@ -934,8 +935,7 @@ local target_selector = class({
 })
 
 --------------------------------------------------------------------------------
-
--- Permashow
+-- debug
 --------------------------------------------------------------------------------
 
 local debug = class({
@@ -1000,21 +1000,28 @@ local debug = class({
 		if level <= self.Debug_level:get_int() then
 		  print("log: " .. " " .. str)
 		  if str ~= self.LastMsg then 
+			self.Last_dbg_msg_time = g_time
 			self.LastMsg2 = self.LastMsg1
 			self.LastMsg1 = self.LastMsg 
 			self.LastMsg = str
 		  end
 		end
+		if g_time == -1 then 
+			self.Last_dbg_msg_time = g_time - 15
+			self.LastMsg2 = ""
+			self.LastMsg1 = ""
+			self.LastMsg1 = "bad g_time"
+		end
 	end,
 
 	draw = function(self)
-		if self.Last_dbg_msg_time == -1 then return false end -- skip bad time
-		if g_time - self.Last_dbg_msg_time >= 10 then return end -- fade out
-
-		
 		local pos = vec2:new((Res.x / 2) - 100, Res.y - 260)
 		local pos1 = vec2:new((Res.x / 2) - 100, Res.y - 290)
 		local pos2 = vec2:new((Res.x / 2) - 100, Res.y - 320)
+		if self.Last_dbg_msg_time == -1 then g_render:text(pos, self.Colors.solid.white, "bad g_time", font, 30)  return false end -- skip bad time
+		if g_time - self.Last_dbg_msg_time >= 10 then return end -- fade out
+
+		
 	
 		g_render:text(pos, self.Colors.solid.white, self.LastMsg, font, 30)
 		g_render:text(pos1, self.Colors.solid.white, self.LastMsg1, font, 30)
@@ -1027,7 +1034,6 @@ local debug = class({
 
 
 --------------------------------------------------------------------------------
-
 -- Permashow
 --------------------------------------------------------------------------------
 
@@ -1207,7 +1213,15 @@ local permashow = class({
 		else
 			self.dragging = false
 		end
+		for _, hotkey in ipairs(self.hotkeys_ordered) do
+			if hotkey.config_var then
+				hotkey.state = hotkey.config_var:get_bool()
+			end
+		end
+
 		self:update_keys()
+
+
 	end,
 
 	is_point_inside = function(self, point)
@@ -1299,6 +1313,5 @@ local x = class({
 	end,
 
 })
-
 
 return x
