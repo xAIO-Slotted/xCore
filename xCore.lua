@@ -11,7 +11,6 @@ local myHero = g_local
 
 --------------------------------------------------------------------------------
 
-
 local function fetch_remote_version_number()
 	local command = "curl -s -H 'Cache-Control: no-cache, no-store, must-revalidate' " .. XCORE_REPO_SCRIPT_PATH
     
@@ -35,8 +34,8 @@ end
 
 local function replace_current_file_with_latest_version(latest_version_script)
     local resources_path = cheat:get_resource_path()
-    local current_file_path = resources_path:gsub("resources$", "lua//lib" .. XCORE_LUA_NAME)
-
+    local current_file_path = resources_path:gsub("resources$", "lua\\lib\\" .. XCORE_LUA_NAME)
+	print("got file path:" .. tostring(current_file_path))
     local file, errorMessage = io.open(current_file_path, "w")
 
     if not file then
@@ -1388,6 +1387,6 @@ local x = class({
 })
 
 
-print("-==--=-=-=-= X core Updater: =--=-=-==--=-=-=-=-=")
+-- print("-==--=-=-=-= X core Updater: =--=-=-==--=-=-=-=-=")
 check_for_update(x)
 return x
