@@ -1,4 +1,4 @@
-XCORE_VERSION = "1.0.2"
+XCORE_VERSION = "1.0.3"
 XCORE_LUA_NAME = "xCore.lua"
 XCORE_REPO_BASE_URL = "https://raw.githubusercontent.com/xAIO-Slotted/xCore/main/"
 XCORE_REPO_SCRIPT_PATH = XCORE_REPO_BASE_URL .. XCORE_LUA_NAME
@@ -283,10 +283,12 @@ local xHelper = class({
 		return (unit.max_health - unit.health)
 	end,
 
-	is_alive = function(self, unit)
-		return unit and not unit:is_invalid_object() and unit:is_visible()
-				and unit:is_alive() and unit:is_targetable() and not self.buffcache:has_buff(unit, "sionpassivezombie") and not unit:get_object_name():lower():find("corpse")
-	end,
+	is_alive = function(self, unit)		
+		return unit and not unit:is_invalid_object() and unit:is_visible() and unit:is_alive() and unit:is_targetable() 
+				and not self.buffcache:has_buff(unit, "sionpassivezombie") 
+				and not unit:get_object_name():lower():find("corpse")
+	end
+	,
 
 	is_valid = function(self, unit)
 		return unit and not unit:is_invalid_object() and unit:is_visible()
@@ -658,26 +660,30 @@ local database = class({
 
 	DMG_LIST = {
 		jinx = { -- 13.6
-			{ slot = "Q", stage = 1, damage_type = 1,
-			  damage = function(self, source, target, level) return 0.1 * source:get_attack_damage() end },
-			{ slot = "W", stage = 1, damage_type = 1, damage = function(self, source, target, level) return ({ 10, 60, 110, 160, 210 })[level] + 1.6 * source:get_attack_damage() end },
-			{ slot = "E", stage = 1, damage_type = 2,
-			  damage = function(self, source, target, level) return ({ 70, 120, 170, 220, 270 })[level] + source:get_ability_power() end },
-			{ slot = "R", stage = 1, damage_type = 1,
-			  damage = function(self, source, target, level)
-				  local dmg = (({ 30, 45, 60 })[level] + (0.15 * source:get_bonus_attack_damage()) * (1.10 + (0.06 * std_math.min(std_math.floor(source.position:dist_to(target.position) / 100), 15)))) +
-						  (({ 25, 30, 35 })[level] / 100 * self.xHelper:get_missing_hp(target));
-				  return dmg
-			  end },
-			{ slot = "R", stage = 2, damage_type = 1,
-			  damage = function(self, source, target, level)
-				  local dmg = (({ 24, 36, 48 })[level] + (0.12 * source:get_bonus_attack_damage()) * (1.10 + (0.06 * std_math.min(std_math.floor(source.position:dist_to(target.position) / 100), 15)))) +
-						  (({ 20, 24, 28 })[level] / 100 * self.xHelper:get_missing_hp(target));
-				  if target:is_ai() then return std_math.min(1200, dmg) end
-				  ;
-				  return dmg
-			  end },
-		},
+		{ slot = "Q", stage = 1, damage_type = 1,
+		  damage = function(self, source, target, level) return 0.1 * source:get_attack_damage() end },
+		{ slot = "W", stage = 1, damage_type = 1, damage = function(self, source, target, level) return ({ 10, 60, 110, 160, 210 })[level] + 1.6 * source:get_attack_damage() end },
+		{ slot = "E", stage = 1, damage_type = 2,
+		  damage = function(self, source, target, level) return ({ 70, 120, 170, 220, 270 })[level] + source:get_ability_power() end },
+		{ slot = "R", stage = 1, damage_type = 1,
+		  damage = function(self, source, target, level)
+			local distance = source.position:dist_to(target.position)
+			local jinx_multiplier
+  
+			if distance >= 1500 then
+				jinx_multiplier = 1
+			elseif distance <= 100 then
+				jinx_multiplier = 0.1
+			else
+				jinx_multiplier = 0.1 + 0.9 * ((distance - 100) / (1500 - 100))
+			end
+  
+			local dmg = (({ 300, 450, 600 })[level] + (1.5 * source:get_bonus_attack_damage()) * jinx_multiplier) +
+						(({ 25, 30, 35 })[level] / 100 * self.xHelper:get_missing_hp(target))
+  
+			return dmg
+		  end },
+	},
 
 		sion = { -- 13.6
 			{ slot = "Q", stage = 1, damage_type = 1,
@@ -921,7 +927,9 @@ local target_selector = class({
 	end,
 
 	get_second_target = function(self, range)
+		range = range or 9999999
 		self:refresh_targets(range)
+		if #self.TARGET_CACHE[range].enemies < 2 then return nil end
 		return self.TARGET_CACHE[range].enemies[2].target
 	end,
 
