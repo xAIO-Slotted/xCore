@@ -1,4 +1,4 @@
-XCORE_VERSION = "1.0.3"
+XCORE_VERSION = "1.0.4"
 XCORE_LUA_NAME = "xCore.lua"
 XCORE_REPO_BASE_URL = "https://raw.githubusercontent.com/xAIO-Slotted/xCore/main/"
 XCORE_REPO_SCRIPT_PATH = XCORE_REPO_BASE_URL .. XCORE_LUA_NAME
@@ -283,10 +283,11 @@ local xHelper = class({
 		return (unit.max_health - unit.health)
 	end,
 
-	is_alive = function(self, unit)		
+	is_alive = function(self, unit)	
 		return unit and not unit:is_invalid_object() and unit:is_visible() and unit:is_alive() and unit:is_targetable() 
 				and not self.buffcache:has_buff(unit, "sionpassivezombie") 
 				and not unit:get_object_name():lower():find("corpse")
+				and unit.position
 	end
 	,
 
