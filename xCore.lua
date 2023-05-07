@@ -1,4 +1,4 @@
-XCORE_VERSION = "1.0.4"
+XCORE_VERSION = "1.0.5"
 XCORE_LUA_NAME = "xCore.lua"
 XCORE_REPO_BASE_URL = "https://raw.githubusercontent.com/xAIO-Slotted/xCore/main/"
 XCORE_REPO_SCRIPT_PATH = XCORE_REPO_BASE_URL .. XCORE_LUA_NAME
@@ -1247,7 +1247,7 @@ local debug = class({
 			yellow = color:new(255, 255, 0, 130),
 			lightYellow = color:new(255, 255, 128, 130),
 			darkYellow = color:new(191, 191, 0, 130),
-			green = color:new(0, 255, 0, 200),
+			green = color:new(0, 255, 0, 150),
 			lightGreen = color:new(128, 255, 128, 130),
 			darkGreen = color:new(0, 128, 0, 130),
 			cyan = color:new(0, 255, 255, 130),
