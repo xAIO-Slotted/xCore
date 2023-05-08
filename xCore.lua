@@ -1,4 +1,4 @@
-XCORE_VERSION = "1.0.5"
+XCORE_VERSION = "1.0.6"
 XCORE_LUA_NAME = "xCore.lua"
 XCORE_REPO_BASE_URL = "https://raw.githubusercontent.com/xAIO-Slotted/xCore/main/"
 XCORE_REPO_SCRIPT_PATH = XCORE_REPO_BASE_URL .. XCORE_LUA_NAME
