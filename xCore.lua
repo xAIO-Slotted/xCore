@@ -1138,12 +1138,19 @@ local target_selector = class({
 					end
 				end
 			end
+<<<<<<< HEAD
 			if self.FORCED_TARGET and target and self.FORCED_TARGET.index == target.index then
 				self.FORCED_TARGET = nil
 			else
 				if target then
 					self.FORCED_TARGET = target
 				end
+=======
+			if self.FORCED_TARGET.index == target.index then
+				self.FORCED_TARGET = nil
+			else
+				self.FORCED_TARGET = target
+>>>>>>> 134224945f00ff128a56c4b10ac065c5c948547b
 			end
 		end
 	end,
