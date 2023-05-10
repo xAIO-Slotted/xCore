@@ -836,6 +836,7 @@ local target_selector = class({
 	weight_hp = 0,
 
 	lastForceChange = 0,
+	forceTargetMaxDistance = 240,
 
 
 
@@ -854,6 +855,8 @@ local target_selector = class({
 
 		self.focus_target = self.ts_sec:checkbox("click to focus", g_config:add_bool(true, "focus_target"))
 
+		self.forceTargetMaxDistance = self.ts_sec:slider_int("max distance", g_config:add_int(240, "force_target_max_distance"), 50, 500, 10)
+
 		self.draw_target = self.drawings_sec:checkbox("visualize targets", g_config:add_bool(true, "draw_targets"))
 
 		self.draw_weight = self.debug_sec:checkbox("draw weight", g_config:add_bool(false, "draw_weight"))
@@ -869,9 +872,11 @@ local target_selector = class({
 		self.weight_hp = self.weight_sec:slider_int("health", g_config:add_int(15, "weight_health"), 0, 100, 1)
 		self.lastForceChange = g_time
 	end,
+
 	GET_STATUS = function(self)
 		return self.ts_enabled:get_value()
 	end,
+
 	FORCED_TARGET = nil,
 	PRIORITY_LIST = {
 		Aatrox = 3,
@@ -1044,12 +1049,13 @@ local target_selector = class({
 			return b.health / a.health
 		end
 	},
-
+	
 	get_cache = function(self, range)
 		return self.TARGET_CACHE[range]
 	end,
 
 	refresh_targets = function(self, range)
+
 		if not self.TARGET_CACHE[range] then
 			self.TARGET_CACHE[range] = { enemies = {} }
 		end
@@ -1115,17 +1121,23 @@ local target_selector = class({
 		range = range or 9999999
 		self:refresh_targets(range)
 		if #self.TARGET_CACHE[range].enemies == 0 then return nil end
-		return self.TARGET_CACHE[range].enemies[1].target
+		local target = features.entity_list:get_by_index(self.TARGET_CACHE[range].enemies[1].target.index)
+		if not target then return nil end
+		if xHelper:is_invincible(target) or not xHelper:is_alive(target) or not xHelper:is_valid(target) then return nil end
+		return target
 	end,
 
 	get_second_target = function(self, range)
 		range = range or 9999999
 		self:refresh_targets(range)
 		if #self.TARGET_CACHE[range].enemies < 2 then return nil end
-		return self.TARGET_CACHE[range].enemies[2].target
+		return features.entity_list:get_by_index(self.TARGET_CACHE[range].enemies[2].target.index)
 	end,
 
-	get_forced_target = function(self, range)
+	get_forced_target = function(self)
+		if self.FORCED_TARGET then
+			self.FORCED_TARGET = features.entity_list:get_by_index(self.FORCED_TARGET.index)
+		end
 		return self.FORCED_TARGET
 	end,
 
@@ -1135,11 +1147,11 @@ local target_selector = class({
 	end,
 
 	force_target = function(self)
-		if g_input:is_key_pressed(1) and g_time - self.lastForceChange >= 0.3 then
+		if self.focus_target:get_value() and self:GET_STATUS() and g_input:is_key_pressed(e_key.lbutton) and g_time - self.lastForceChange >= 0.3 then
 			local target = nil
 			local mousePos = g_input:get_cursor_position_game()
 			local lowestDistance = std_math.huge
-			local maxDistance = 250
+			local maxDistance = self.forceTargetMaxDistance:get_value() or 240
 			for i, enemy in ipairs(features.entity_list:get_enemies()) do
 				if self.xHelper:is_valid(enemy) then
 					local dist = mousePos:dist_to(enemy.position)
@@ -1149,14 +1161,13 @@ local target_selector = class({
 					end
 				end
 			end
-			if self.FORCED_TARGET and target and self.FORCED_TARGET.index == target.index then
+
+			if not target or ( target and self.FORCED_TARGET and self.FORCED_TARGET.index == target.index ) then
 				self.FORCED_TARGET = nil
 				self.lastForceChange = g_time
 			else
-				if target then
-					self.FORCED_TARGET = target
-					self.lastForceChange = g_time
-				end
+				self.FORCED_TARGET = target
+				self.lastForceChange = g_time
 			end
 		end
 	end,
@@ -1171,17 +1182,18 @@ local target_selector = class({
 		end
 		if cache and cache.enemies then
 			for i, data in ipairs(cache.enemies) do
-				if self.draw_target:get_value() and data.target:is_visible() then
+				local target = features.entity_list:get_by_index(data.target.index)
+				if self.draw_target:get_value() and target:is_visible() then
 					if i == 1 and not forced then
-						g_render:circle_3d(data.target.position, color:new(255, 0, 0, 55), 100, 3, 55, 1)
+						g_render:circle_3d(target.position, color:new(255, 0, 0, 55), 100, 3, 55, 1)
 					end
 				end
 
 				if self.draw_weight:get_value() then
-					if data.target.position:to_screen() ~= nil then
+					if target.position:to_screen() ~= nil then
 						g_render:text(
-							vec2:new(data.target.position:to_screen().x + 60,
-								data.target.position:to_screen().y - 10),
+							vec2:new(target.position:to_screen().x + 60,
+							target.position:to_screen().y - 10),
 							color:new(255, 255, 255),
 							data.weight.total .. "",
 							nil,
