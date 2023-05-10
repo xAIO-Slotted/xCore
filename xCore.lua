@@ -11,6 +11,12 @@ local myHero = g_local
 
 --------------------------------------------------------------------------------
 
+--- @alias Color table<string, table<string, table<number, number, number, number>>>
+--- @alias Vec3 table<string, table<number, number, number>>
+--- @alias Vec2 table<string, table<number, number>>
+
+--------------------------------------------------------------------------------
+
 local function fetch_remote_version_number()
 	local command = "curl -s -H 'Cache-Control: no-cache, no-store, must-revalidate' " .. XCORE_REPO_SCRIPT_PATH
 
@@ -103,6 +109,171 @@ local function class(properties, ...)
 
 	return cls
 end
+
+--------------------------------------------------------------------------------
+
+-- Vec3 Utility
+
+--------------------------------------------------------------------------------
+
+local vec3Util = class({
+
+	--- @type fun(self:fun() ,point:Vec3):nil
+	print = function(self, point)
+		print("x: " .. point.x .. " y: " .. point.y .. " z: " .. point.z)
+	end,
+
+	--- @type fun(self:fun() ,origin:Vec3, point:Vec3, angle:number):Vec3
+	rotate = function(self, origin, point, angle)
+		local angle = angle * (math.pi/180)
+		local rotatedX = math.cos(angle) * (point.x - origin.x) - math.sin(angle) * (point.z - origin.z) + origin.x
+		local rotatedZ = math.sin(angle) * (point.x - origin.x) + math.cos(angle) * (point.z - origin.z) + origin.z
+		return vec3:new(rotatedX, point.y ,rotatedZ)
+	end,
+
+	--- @type fun(self:fun(), origin:Vec3, offsetX:number, offsetZ:number):Vec3
+	translate = function(self, origin, offsetX, offsetZ)
+		local translatedX = origin.x + offsetX
+		local translatedZ = origin.z + offsetZ
+		return vec3:new(translatedX, origin.y, translatedZ)
+	end,
+
+	--- @type fun(self:fun(), origin:Vec3, offsetX:number):Vec3
+	translateX = function(self, origin, offsetX)
+		local translatedX = origin.x + offsetX
+		return vec3:new(translatedX, origin.y, origin.z)
+	end,
+
+	--- @type fun(self:fun(), origin:Vec3, offsetZ:number):Vec3
+	translateZ = function(self, origin, offsetZ)
+		local translatedZ = origin.z + offsetZ
+		return vec3:new(origin.x, origin.y, translatedZ)
+	end,
+
+	--- @type fun(self:fun(), origin:Vec3, color:Color, radius:number):nil
+	drawCircle = function(self, origin, color, radius)
+		g_render:circle_3d(origin, color, radius, 2, 100, 2)
+	end,
+
+	--- @type fun(self:fun(), origin:Vec3, destination:Vec3, color:Color):nil
+	drawLine = function(self, origin, destination, color)
+		g_render:line_3d(origin, destination, color, 2)
+	end,
+
+	--- @type fun(self:fun(), start_pos:Vec3, end_pos:Vec3, width:number, color:Color, thickness:number):nil
+	box_3d = function(self, start_pos, end_pos, width, color, thickness)
+		  -- Calculate the direction vector
+		  local dir = vec3:new(end_pos.x - start_pos.x, 0, end_pos.z - start_pos.z)
+		  dir = dir:normalized()
+		
+		  -- Calculate the half width vector
+		  local half_width_vec = vec3:new(-dir.z * (width), 0, dir.x * (width))
+		  
+		  -- Calculate the corner points of the box
+		  local p1 = vec3:new(start_pos.x + half_width_vec.x, start_pos.y, start_pos.z + half_width_vec.z)
+		  local p2 = vec3:new(start_pos.x - half_width_vec.x, start_pos.y, start_pos.z - half_width_vec.z)
+		  local p3 = vec3:new(end_pos.x + half_width_vec.x, end_pos.y, end_pos.z + half_width_vec.z)
+		  local p4 = vec3:new(end_pos.x - half_width_vec.x, end_pos.y, end_pos.z - half_width_vec.z)
+		
+		  -- Draw lines connecting the corner points
+		  g_render:line_3d(p1, p2, color, thickness)
+		  g_render:line_3d(p1, p3, color, thickness)
+		  g_render:line_3d(p2, p4, color, thickness)
+		  g_render:line_3d(p3, p4, color, thickness)
+		  
+		  -- Draw lines connecting start and end points (vertical edges)
+		  g_render:line_3d(p1, p3, color, thickness)
+		  g_render:line_3d(p2, p4, color, thickness)
+	end,
+})
+
+
+--------------------------------------------------------------------------------
+
+-- Vec2 Utility
+
+--------------------------------------------------------------------------------
+
+local vec2Util = class({
+
+	--- @type fun(self:fun() ,point:Vec2):nil
+	print = function(self, point)
+		print("x: " .. point.x .. " y: " .. point.y)
+	end,
+
+	--- @type fun(self:fun() ,origin:Vec2, point:Vec2, angle:number):Vec2
+	rotate = function(self, origin, point, angle)
+		local angle = angle * (math.pi/180)
+		local rotatedX = math.cos(angle) * (point.x - origin.x) - math.sin(angle) * (point.y - origin.y) + origin.x
+		local rotatedY = math.sin(angle) * (point.x - origin.x) + math.cos(angle) * (point.y - origin.y) + origin.y
+		return vec3:new(rotatedX, rotatedY)
+	end,
+
+	--- @type fun(self:fun(), origin:Vec2, offsetX:number, offsetY:number):Vec2
+	translate = function(self, origin, offsetX, offsetY)
+		local translatedX = origin.x + offsetX
+		local translatedY = origin.y + offsetY
+		return vec2:new(translatedX,  translatedY)
+	end,
+
+	--- @type fun(self:fun(), origin:Vec2, offsetX:number):Vec2
+	translateX = function(self, origin, offsetX)
+		local translatedX = origin.x + offsetX
+		return vec2:new(translatedX,  origin.y)
+	end,
+
+	--- @type fun(self:fun(), origin:Vec2, offsetY:number):Vec2
+	translateY = function(self, origin, offsetY)
+		local translatedY = origin.y + offsetY
+		return vec2:new(origin.x,  translatedY)
+	end,
+
+	--- @type fun(self:fun(), origin:Vec2, color:Color, radius:number):nil
+	drawCircle = function(self, origin, color, radius)
+		g_render:circle(origin, color, radius, 100)
+	end,
+
+	--- @type fun(self:fun(), origin:Vec2, color:Color, radius:number):nil
+	drawFullCircle = function(self, origin, color, radius)
+		g_render:filled_circle(origin, color, radius, 100)
+	end,
+
+	--- @type fun(self:fun(), origin:Vec2, destination:Vec2, color:Color):nil
+	drawLine = function(self, origin, destination, color)
+		g_render:line(origin, destination, color, 2)
+	end,
+
+	--- @type fun(self:fun(), start:Vec2, size:Vec2, color:Color):nil
+	box = function(self, start, size, color)
+		  g_render:box(start, size, color, 0, 2)
+	end,
+})
+
+--------------------------------------------------------------------------------
+
+-- Utility
+
+--------------------------------------------------------------------------------
+
+local util = class({
+	screen = nil,
+	screenX = nil,
+	screenY = nil,
+	font = font,
+	fontSize = 30,
+
+	init = function(self)
+		self.screen = g_render:get_screensize()
+		self.screenX = self.screen.x
+		self.screenY = self.screen.y
+	end,
+
+	textAt = function(self, pos, color, text)
+		g_render:text(pos, color, text, self.font, self.fontSize)
+	end,
+
+
+})
 
 --------------------------------------------------------------------------------
 
@@ -1208,6 +1379,7 @@ local target_selector = class({
 	tick = function(self)
 		if not self.ts_enabled:get_value() then return end
 		self:force_target()
+		-- self:refresh_targets(9999999)
 		local forced = self:get_forced_target()
 		local target = self:get_main_target()
 		if forced then
@@ -1626,6 +1798,9 @@ local x = class({
 	database = database:new(xHelper),
 	damagelib = damagelib:new(xHelper, math, database, buffcache),
 	target_selector = target_selector:new(xHelper, math, objects, damagelib),
+	util = util:new(),
+	vec3_util = vec3Util,
+	vec2_util = vec2Util,
 
 	init = function(self)
 		cheat.on("features.pre_run", function()
