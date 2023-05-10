@@ -14,6 +14,7 @@ local myHero = g_local
 --- @alias Color table<string, table<string, table<number, number, number, number>>>
 --- @alias Vec3 table<string, table<number, number, number>>
 --- @alias Vec2 table<string, table<number, number>>
+--- @alias Screen table<string, table<number, number>>
 
 --------------------------------------------------------------------------------
 
@@ -115,15 +116,23 @@ end
 -- Vec3 Utility
 
 --------------------------------------------------------------------------------
-
+--- @class vec3Util
+--- @field print fun(self:vec3Util, point:Vec3):nil
+--- @field rotate fun(self:vec3Util, origin:Vec3, point:Vec3, angle:number):Vec3
+--- @field translate fun(self:vec3Util, origin:Vec3, offsetX:number, offsetZ:number):Vec3
+--- @field translateX fun(self:vec3Util, origin:Vec3, offsetX:number):Vec3
+--- @field translateZ fun(self:vec3Util, origin:Vec3, offsetZ:number):Vec3
+--- @field drawCircle fun(self:vec3Util, origin:Vec3, color:Color, radius:number):nil
+--- @field drawLine fun(self:vec3Util, origin:Vec3, destination:Vec3, color:Color):nil
+--- @field drawBox fun(self:vec3Util, start_pos:Vec3, end_pos:Vec3, width:number, color:Color, thickness:number):nil
 local vec3Util = class({
 
-	--- @type fun(self:fun() ,point:Vec3):nil
+	--- @type fun(self:vec3Util, point:Vec3):nil
 	print = function(self, point)
 		print("x: " .. point.x .. " y: " .. point.y .. " z: " .. point.z)
 	end,
 
-	--- @type fun(self:fun() ,origin:Vec3, point:Vec3, angle:number):Vec3
+	--- @type fun(self:vec3Util, origin:Vec3, point:Vec3, angle:number):Vec3
 	rotate = function(self, origin, point, angle)
 		local angle = angle * (math.pi/180)
 		local rotatedX = math.cos(angle) * (point.x - origin.x) - math.sin(angle) * (point.z - origin.z) + origin.x
@@ -131,37 +140,37 @@ local vec3Util = class({
 		return vec3:new(rotatedX, point.y ,rotatedZ)
 	end,
 
-	--- @type fun(self:fun(), origin:Vec3, offsetX:number, offsetZ:number):Vec3
+	--- @type fun(self:vec3Util, origin:Vec3, offsetX:number, offsetZ:number):Vec3
 	translate = function(self, origin, offsetX, offsetZ)
 		local translatedX = origin.x + offsetX
 		local translatedZ = origin.z + offsetZ
 		return vec3:new(translatedX, origin.y, translatedZ)
 	end,
 
-	--- @type fun(self:fun(), origin:Vec3, offsetX:number):Vec3
+	--- @type fun(self:vec3Util, origin:Vec3, offsetX:number):Vec3
 	translateX = function(self, origin, offsetX)
 		local translatedX = origin.x + offsetX
 		return vec3:new(translatedX, origin.y, origin.z)
 	end,
 
-	--- @type fun(self:fun(), origin:Vec3, offsetZ:number):Vec3
+	--- @type fun(self:vec3Util, origin:Vec3, offsetZ:number):Vec3
 	translateZ = function(self, origin, offsetZ)
 		local translatedZ = origin.z + offsetZ
 		return vec3:new(origin.x, origin.y, translatedZ)
 	end,
 
-	--- @type fun(self:fun(), origin:Vec3, color:Color, radius:number):nil
+	--- @type fun(self:vec3Util, origin:Vec3, color:Color, radius:number):nil
 	drawCircle = function(self, origin, color, radius)
 		g_render:circle_3d(origin, color, radius, 2, 100, 2)
 	end,
 
-	--- @type fun(self:fun(), origin:Vec3, destination:Vec3, color:Color):nil
+	--- @type fun(self:vec3Util, origin:Vec3, destination:Vec3, color:Color):nil
 	drawLine = function(self, origin, destination, color)
 		g_render:line_3d(origin, destination, color, 2)
 	end,
 
-	--- @type fun(self:fun(), start_pos:Vec3, end_pos:Vec3, width:number, color:Color, thickness:number):nil
-	box_3d = function(self, start_pos, end_pos, width, color, thickness)
+	--- @type fun(self:vec3Util, start_pos:Vec3, end_pos:Vec3, width:number, color:Color, thickness:number):nil
+	drawBox = function(self, start_pos, end_pos, width, color, thickness)
 		  -- Calculate the direction vector
 		  local dir = vec3:new(end_pos.x - start_pos.x, 0, end_pos.z - start_pos.z)
 		  dir = dir:normalized()
@@ -193,15 +202,23 @@ local vec3Util = class({
 -- Vec2 Utility
 
 --------------------------------------------------------------------------------
-
+--- @class vec2Util
+--- @field print fun(self:vec2Util, point:Vec2):nil
+--- @field rotate fun(self:vec2Util, origin:Vec2, point:Vec2, angle:number):Vec2
+--- @field translate fun(self:vec2Util, origin:Vec2, offsetX:number, offsetY:number):Vec2
+--- @field translateX fun(self:vec2Util, origin:Vec2, offsetX:number):Vec2
+--- @field translateY fun(self:vec2Util, origin:Vec2, offsetY:number):Vec2
+--- @field drawCircle fun(self:vec2Util, origin:Vec2, color:Color, radius:number):nil
+--- @field drawLine fun(self:vec2Util, origin:Vec2, destination:Vec2, color:Color):nil
+--- @field drawBox fun(self:vec2Util, start_pos:Vec2, end_pos:Vec2, width:number, color:Color, thickness:number):nil
 local vec2Util = class({
 
-	--- @type fun(self:fun() ,point:Vec2):nil
+	--- @type fun(self:vec2Util, point:Vec2):nil
 	print = function(self, point)
 		print("x: " .. point.x .. " y: " .. point.y)
 	end,
 
-	--- @type fun(self:fun() ,origin:Vec2, point:Vec2, angle:number):Vec2
+	--- @type fun(self:vec2Util, origin:Vec2, point:Vec2, angle:number):Vec2
 	rotate = function(self, origin, point, angle)
 		local angle = angle * (math.pi/180)
 		local rotatedX = math.cos(angle) * (point.x - origin.x) - math.sin(angle) * (point.y - origin.y) + origin.x
@@ -209,42 +226,42 @@ local vec2Util = class({
 		return vec3:new(rotatedX, rotatedY)
 	end,
 
-	--- @type fun(self:fun(), origin:Vec2, offsetX:number, offsetY:number):Vec2
+	--- @type fun(self:vec2Util, origin:Vec2, offsetX:number, offsetY:number):Vec2
 	translate = function(self, origin, offsetX, offsetY)
 		local translatedX = origin.x + offsetX
 		local translatedY = origin.y + offsetY
 		return vec2:new(translatedX,  translatedY)
 	end,
 
-	--- @type fun(self:fun(), origin:Vec2, offsetX:number):Vec2
+	--- @type fun(self:vec2Util, origin:Vec2, offsetX:number):Vec2
 	translateX = function(self, origin, offsetX)
 		local translatedX = origin.x + offsetX
 		return vec2:new(translatedX,  origin.y)
 	end,
 
-	--- @type fun(self:fun(), origin:Vec2, offsetY:number):Vec2
+	--- @type fun(self:vec2Util, origin:Vec2, offsetY:number):Vec2
 	translateY = function(self, origin, offsetY)
 		local translatedY = origin.y + offsetY
 		return vec2:new(origin.x,  translatedY)
 	end,
 
-	--- @type fun(self:fun(), origin:Vec2, color:Color, radius:number):nil
+	--- @type fun(self:vec2Util, origin:Vec2, color:Color, radius:number):nil
 	drawCircle = function(self, origin, color, radius)
 		g_render:circle(origin, color, radius, 100)
 	end,
 
-	--- @type fun(self:fun(), origin:Vec2, color:Color, radius:number):nil
+	--- @type fun(self:vec2Util, origin:Vec2, color:Color, radius:number):nil
 	drawFullCircle = function(self, origin, color, radius)
 		g_render:filled_circle(origin, color, radius, 100)
 	end,
 
-	--- @type fun(self:fun(), origin:Vec2, destination:Vec2, color:Color):nil
+	--- @type fun(self:vec2Util, origin:Vec2, destination:Vec2, color:Color):nil
 	drawLine = function(self, origin, destination, color)
 		g_render:line(origin, destination, color, 2)
 	end,
 
-	--- @type fun(self:fun(), start:Vec2, size:Vec2, color:Color):nil
-	box = function(self, start, size, color)
+	--- @type fun(self:vec2Util, start:Vec2, size:Vec2, color:Color):nil
+	drawBox = function(self, start, size, color)
 		  g_render:box(start, size, color, 0, 2)
 	end,
 })
@@ -254,13 +271,86 @@ local vec2Util = class({
 -- Utility
 
 --------------------------------------------------------------------------------
-
+--- @class util
+--- @field screen Screen
+--- @field screenX number
+--- @field screenY number
+--- @field font string
+--- @field fontSize number
+--- @field Colors table<string, table<string,Color>>
+--- @field textAt fun(self:util, pos:Vec2, color:Color, text:string):nil
+--- @field new fun(self:util):util
 local util = class({
 	screen = nil,
 	screenX = nil,
 	screenY = nil,
 	font = font,
 	fontSize = 30,
+
+	Colors = {
+		solid = {
+			white = color:new(255, 255, 255),
+			black = color:new(0, 0, 0),
+			gray = color:new(128, 128, 128),
+			lightGray = color:new(192, 192, 192),
+			darkGray = color:new(64, 64, 64),
+			red = color:new(255, 0, 0),
+			lightRed = color:new(255, 128, 128),
+			darkRed = color:new(128, 0, 0),
+			orange = color:new(255, 127, 0),
+			lightOrange = color:new(255, 180, 128),
+			darkOrange = color:new(191, 95, 0),
+			yellow = color:new(255, 255, 0),
+			lightYellow = color:new(255, 255, 128),
+			darkYellow = color:new(191, 191, 0),
+			green = color:new(0, 255, 0),
+			lightGreen = color:new(128, 255, 128),
+			darkGreen = color:new(0, 128, 0),
+			cyan = color:new(0, 255, 255),
+			lightCyan = color:new(128, 255, 255),
+			darkCyan = color:new(0, 128, 128),
+			blue = color:new(0, 0, 255),
+			lightBlue = color:new(128, 128, 255),
+			darkBlue = color:new(0, 0, 128),
+			purple = color:new(143, 0, 255),
+			lightPurple = color:new(191, 128, 255),
+			darkPurple = color:new(95, 0, 191),
+			magenta = color:new(255, 0, 255),
+			lightMagenta = color:new(255, 128, 255),
+			darkMagenta = color:new(128, 0, 128),
+		},
+		transparent = {
+			white = color:new(255, 255, 255, 130),
+			black = color:new(0, 0, 0, 130),
+			gray = color:new(128, 128, 128, 130),
+			lightGray = color:new(192, 192, 192, 130),
+			darkGray = color:new(64, 64, 64, 130),
+			red = color:new(255, 0, 0, 200),
+			lightRed = color:new(255, 128, 128, 130),
+			darkRed = color:new(128, 0, 0, 130),
+			orange = color:new(255, 127, 0, 130),
+			lightOrange = color:new(255, 180, 128, 130),
+			darkOrange = color:new(191, 95, 0, 130),
+			yellow = color:new(255, 255, 0, 130),
+			lightYellow = color:new(255, 255, 128, 130),
+			darkYellow = color:new(191, 191, 0, 130),
+			green = color:new(0, 255, 0, 150),
+			lightGreen = color:new(128, 255, 128, 130),
+			darkGreen = color:new(0, 128, 0, 130),
+			cyan = color:new(0, 255, 255, 130),
+			lightCyan = color:new(128, 255, 255, 130),
+			darkCyan = color:new(0, 128, 128, 130),
+			blue = color:new(63, 72, 204, 200),
+			lightBlue = color:new(128, 128, 255, 130),
+			darkBlue = color:new(0, 0, 128, 130),
+			purple = color:new(143, 0, 255, 100),
+			lightPurple = color:new(191, 128, 255, 130),
+			darkPurple = color:new(95, 0, 191, 130),
+			magenta = color:new(255, 0, 255, 130),
+			lightMagenta = color:new(255, 128, 255, 130),
+			darkMagenta = color:new(128, 0, 128, 130),
+		}
+	},
 
 	init = function(self)
 		self.screen = g_render:get_screensize()
@@ -1008,8 +1098,6 @@ local target_selector = class({
 
 	lastForceChange = 0,
 	forceTargetMaxDistance = 240,
-
-
 
 	init = function(self, xHelper, math, objects, damagelib)
 		self.xHelper = xHelper
@@ -1797,10 +1885,10 @@ local x = class({
 	debug = debug:new(),
 	database = database:new(xHelper),
 	damagelib = damagelib:new(xHelper, math, database, buffcache),
-	target_selector = target_selector:new(xHelper, math, objects, damagelib),
 	util = util:new(),
 	vec3_util = vec3Util,
 	vec2_util = vec2Util,
+	target_selector = target_selector:new(xHelper, math, objects, damagelib),
 
 	init = function(self)
 		cheat.on("features.pre_run", function()
