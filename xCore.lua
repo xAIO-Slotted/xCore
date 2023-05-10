@@ -1,4 +1,4 @@
-XCORE_VERSION = "1.0.6"
+XCORE_VERSION = "1.0.7"
 XCORE_LUA_NAME = "xCore.lua"
 XCORE_REPO_BASE_URL = "https://raw.githubusercontent.com/xAIO-Slotted/xCore/main/"
 XCORE_REPO_SCRIPT_PATH = XCORE_REPO_BASE_URL .. XCORE_LUA_NAME
@@ -1126,23 +1126,25 @@ local target_selector = class({
 	force_target = function(self)
 		if g_input:is_key_pressed(1) then
 			local target = nil
-			local mousePos = g_input:get_cursor_position()
+			local mousePos = g_input:get_cursor_position_game()
 			local lowestDistance = std_math.huge
-			local maxDistance = 70
+			local maxDistance = 250
 			for i, enemy in ipairs(features.entity_list:get_enemies()) do
 				if self.xHelper:is_valid(enemy) then
-					local enemyVec2 = enemy.position:to_screen()
-					if enemyVec2 ~= nil and enemyVec2.y > 25 then
-						enemyVec2.y = enemyVec2.y - 25
-						local dist = enemyVec2:dist_to(mousePos)
-						if dist < maxDistance and dist < lowestDistance then
-							target = enemy
-							lowestDistance = dist
-						end
+					local dist = mousePos:dist_to(enemy.position)
+					if dist < maxDistance and dist < lowestDistance then
+						target = enemy
+						lowestDistance = dist
 					end
 				end
 			end
-			self.FORCED_TARGET = target
+			if self.FORCED_TARGET and target and self.FORCED_TARGET.index == target.index then
+				self.FORCED_TARGET = nil
+			else
+				if target then
+					self.FORCED_TARGET = target
+				end
+			end
 		end
 	end,
 
