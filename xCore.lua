@@ -116,6 +116,7 @@ end
 -- Vec3 Utility
 
 --------------------------------------------------------------------------------
+
 --- @class vec3Util
 --- @field print fun(self:vec3Util, point:Vec3):nil
 --- @field rotate fun(self:vec3Util, origin:Vec3, point:Vec3, angle:number):Vec3
@@ -123,16 +124,15 @@ end
 --- @field translateX fun(self:vec3Util, origin:Vec3, offsetX:number):Vec3
 --- @field translateZ fun(self:vec3Util, origin:Vec3, offsetZ:number):Vec3
 --- @field drawCircle fun(self:vec3Util, origin:Vec3, color:Color, radius:number):nil
+--- @field drawCircleFull fun(self:vec3Util, origin:Vec3, color:Color, radius:number):nil
 --- @field drawLine fun(self:vec3Util, origin:Vec3, destination:Vec3, color:Color):nil
 --- @field drawBox fun(self:vec3Util, start_pos:Vec3, end_pos:Vec3, width:number, color:Color, thickness:number):nil
 local vec3Util = class({
 
-	--- @type fun(self:vec3Util, point:Vec3):nil
 	print = function(self, point)
 		print("x: " .. point.x .. " y: " .. point.y .. " z: " .. point.z)
 	end,
 
-	--- @type fun(self:vec3Util, origin:Vec3, point:Vec3, angle:number):Vec3
 	rotate = function(self, origin, point, angle)
 		local angle = angle * (math.pi/180)
 		local rotatedX = math.cos(angle) * (point.x - origin.x) - math.sin(angle) * (point.z - origin.z) + origin.x
@@ -140,36 +140,34 @@ local vec3Util = class({
 		return vec3:new(rotatedX, point.y ,rotatedZ)
 	end,
 
-	--- @type fun(self:vec3Util, origin:Vec3, offsetX:number, offsetZ:number):Vec3
 	translate = function(self, origin, offsetX, offsetZ)
 		local translatedX = origin.x + offsetX
 		local translatedZ = origin.z + offsetZ
 		return vec3:new(translatedX, origin.y, translatedZ)
 	end,
 
-	--- @type fun(self:vec3Util, origin:Vec3, offsetX:number):Vec3
 	translateX = function(self, origin, offsetX)
 		local translatedX = origin.x + offsetX
 		return vec3:new(translatedX, origin.y, origin.z)
 	end,
 
-	--- @type fun(self:vec3Util, origin:Vec3, offsetZ:number):Vec3
 	translateZ = function(self, origin, offsetZ)
 		local translatedZ = origin.z + offsetZ
 		return vec3:new(origin.x, origin.y, translatedZ)
 	end,
 
-	--- @type fun(self:vec3Util, origin:Vec3, color:Color, radius:number):nil
 	drawCircle = function(self, origin, color, radius)
 		g_render:circle_3d(origin, color, radius, 2, 100, 2)
 	end,
 
-	--- @type fun(self:vec3Util, origin:Vec3, destination:Vec3, color:Color):nil
+	drawCircleFull = function(self, origin, color, radius)
+		g_render:circle_3d(origin, color, radius, 3, 100, 2)
+	end,
+
 	drawLine = function(self, origin, destination, color)
 		g_render:line_3d(origin, destination, color, 2)
 	end,
 
-	--- @type fun(self:vec3Util, start_pos:Vec3, end_pos:Vec3, width:number, color:Color, thickness:number):nil
 	drawBox = function(self, start_pos, end_pos, width, color, thickness)
 		  -- Calculate the direction vector
 		  local dir = vec3:new(end_pos.x - start_pos.x, 0, end_pos.z - start_pos.z)
@@ -196,12 +194,12 @@ local vec3Util = class({
 	end,
 })
 
-
 --------------------------------------------------------------------------------
 
 -- Vec2 Utility
 
 --------------------------------------------------------------------------------
+
 --- @class vec2Util
 --- @field print fun(self:vec2Util, point:Vec2):nil
 --- @field rotate fun(self:vec2Util, origin:Vec2, point:Vec2, angle:number):Vec2
@@ -212,13 +210,10 @@ local vec3Util = class({
 --- @field drawLine fun(self:vec2Util, origin:Vec2, destination:Vec2, color:Color):nil
 --- @field drawBox fun(self:vec2Util, start_pos:Vec2, end_pos:Vec2, width:number, color:Color, thickness:number):nil
 local vec2Util = class({
-
-	--- @type fun(self:vec2Util, point:Vec2):nil
 	print = function(self, point)
 		print("x: " .. point.x .. " y: " .. point.y)
 	end,
 
-	--- @type fun(self:vec2Util, origin:Vec2, point:Vec2, angle:number):Vec2
 	rotate = function(self, origin, point, angle)
 		local angle = angle * (math.pi/180)
 		local rotatedX = math.cos(angle) * (point.x - origin.x) - math.sin(angle) * (point.y - origin.y) + origin.x
@@ -226,41 +221,34 @@ local vec2Util = class({
 		return vec3:new(rotatedX, rotatedY)
 	end,
 
-	--- @type fun(self:vec2Util, origin:Vec2, offsetX:number, offsetY:number):Vec2
 	translate = function(self, origin, offsetX, offsetY)
 		local translatedX = origin.x + offsetX
 		local translatedY = origin.y + offsetY
 		return vec2:new(translatedX,  translatedY)
 	end,
 
-	--- @type fun(self:vec2Util, origin:Vec2, offsetX:number):Vec2
 	translateX = function(self, origin, offsetX)
 		local translatedX = origin.x + offsetX
 		return vec2:new(translatedX,  origin.y)
 	end,
 
-	--- @type fun(self:vec2Util, origin:Vec2, offsetY:number):Vec2
 	translateY = function(self, origin, offsetY)
 		local translatedY = origin.y + offsetY
 		return vec2:new(origin.x,  translatedY)
 	end,
 
-	--- @type fun(self:vec2Util, origin:Vec2, color:Color, radius:number):nil
 	drawCircle = function(self, origin, color, radius)
 		g_render:circle(origin, color, radius, 100)
 	end,
 
-	--- @type fun(self:vec2Util, origin:Vec2, color:Color, radius:number):nil
 	drawFullCircle = function(self, origin, color, radius)
 		g_render:filled_circle(origin, color, radius, 100)
 	end,
 
-	--- @type fun(self:vec2Util, origin:Vec2, destination:Vec2, color:Color):nil
 	drawLine = function(self, origin, destination, color)
 		g_render:line(origin, destination, color, 2)
 	end,
 
-	--- @type fun(self:vec2Util, start:Vec2, size:Vec2, color:Color):nil
 	drawBox = function(self, start, size, color)
 		  g_render:box(start, size, color, 0, 2)
 	end,
@@ -271,6 +259,7 @@ local vec2Util = class({
 -- Utility
 
 --------------------------------------------------------------------------------
+
 --- @class util
 --- @field screen Screen
 --- @field screenX number
