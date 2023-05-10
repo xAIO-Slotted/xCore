@@ -1135,7 +1135,7 @@ local target_selector = class({
 	end,
 
 	force_target = function(self)
-		if g_input:is_key_pressed(1) then
+		if g_input:is_key_pressed(1) and g_time - self.lastForceChange >= 0.3 then
 			local target = nil
 			local mousePos = g_input:get_cursor_position_game()
 			local lowestDistance = std_math.huge
@@ -1151,9 +1151,11 @@ local target_selector = class({
 			end
 			if self.FORCED_TARGET and target and self.FORCED_TARGET.index == target.index then
 				self.FORCED_TARGET = nil
+				self.lastForceChange = g_time
 			else
 				if target then
 					self.FORCED_TARGET = target
+					self.lastForceChange = g_time
 				end
 			end
 		end
