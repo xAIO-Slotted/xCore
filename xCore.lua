@@ -107,6 +107,7 @@ end
 --------------------------------------------------------------------------------
 
 -- Math
+
 --------------------------------------------------------------------------------
 
 local math = class({
@@ -168,6 +169,7 @@ local math = class({
 --------------------------------------------------------------------------------
 
 -- Objects
+
 --------------------------------------------------------------------------------
 
 local objects = class({
@@ -195,6 +197,7 @@ local objects = class({
 --------------------------------------------------------------------------------
 
 -- Buffs
+
 --------------------------------------------------------------------------------
 local buffcache = class({
 	get_buff = function(self, unit, name)
@@ -219,6 +222,7 @@ local buffcache = class({
 --------------------------------------------------------------------------------
 
 -- Helper
+
 --------------------------------------------------------------------------------
 
 local xHelper = class({
@@ -310,6 +314,7 @@ local xHelper = class({
 --------------------------------------------------------------------------------
 
 -- Damage Library
+
 --------------------------------------------------------------------------------
 
 local damagelib = class({
@@ -568,6 +573,7 @@ local damagelib = class({
 --------------------------------------------------------------------------------
 
 -- Database
+
 --------------------------------------------------------------------------------
 
 local database = class({
@@ -778,6 +784,7 @@ local database = class({
 --------------------------------------------------------------------------------
 
 -- Target Selector // very experimental and wip. needs to be improved.
+
 --------------------------------------------------------------------------------
 
 local Weight = {}
@@ -828,6 +835,8 @@ local target_selector = class({
 	weight_prio = 0,
 	weight_hp = 0,
 
+	lastForceChange = 0,
+
 
 
 	init = function(self, xHelper, math, objects, damagelib)
@@ -858,6 +867,7 @@ local target_selector = class({
 		self.weight_dmg = self.weight_sec:slider_int("damage", g_config:add_int(10, "weight_damage"), 0, 100, 1)
 		self.weight_prio = self.weight_sec:slider_int("priority", g_config:add_int(10, "weight_priority"), 0, 100, 1)
 		self.weight_hp = self.weight_sec:slider_int("health", g_config:add_int(15, "weight_health"), 0, 100, 1)
+		self.lastForceChange = g_time
 	end,
 	GET_STATUS = function(self)
 		return self.ts_enabled:get_value()
@@ -1038,6 +1048,7 @@ local target_selector = class({
 	get_cache = function(self, range)
 		return self.TARGET_CACHE[range]
 	end,
+
 	refresh_targets = function(self, range)
 		if not self.TARGET_CACHE[range] then
 			self.TARGET_CACHE[range] = { enemies = {} }
@@ -1198,7 +1209,9 @@ local target_selector = class({
 })
 
 --------------------------------------------------------------------------------
+
 -- debug
+
 --------------------------------------------------------------------------------
 
 local debug = class({
@@ -1333,10 +1346,10 @@ local debug = class({
 
 })
 
-
-
 --------------------------------------------------------------------------------
+
 -- Permashow
+
 --------------------------------------------------------------------------------
 
 local permashow = class({
@@ -1582,12 +1595,10 @@ local permashow = class({
 
 })
 
-
-
-
 --------------------------------------------------------------------------------
 
 -- Callbacks
+
 --------------------------------------------------------------------------------
 
 local x = class({
@@ -1619,7 +1630,6 @@ local x = class({
 	end,
 
 })
-
 
 -- print("-==--=-=-=-= X core Updater: =--=-=-==--=-=-=-=-=")
 check_for_update(x)
