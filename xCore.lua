@@ -7,7 +7,13 @@ local std_math = math
 --------------------------------------------------------------------------------
 
 local font = 'corbel'
-local myHero = g_local
+
+--------------------------------------------------------------------------------
+
+--- @alias Color table<string, table<string, table<number, number, number, number>>>
+--- @alias Vec3 table<string, table<number, number, number>>
+--- @alias Vec2 table<string, table<number, number>>
+--- @alias Screen table<string, table<number, number>>
 
 --------------------------------------------------------------------------------
 
@@ -106,7 +112,251 @@ end
 
 --------------------------------------------------------------------------------
 
+-- Vec3 Utility
+
+--------------------------------------------------------------------------------
+
+--- @class vec3Util
+--- @field print fun(self:vec3Util, point:Vec3):nil
+--- @field rotate fun(self:vec3Util, origin:Vec3, point:Vec3, angle:number):Vec3
+--- @field translate fun(self:vec3Util, origin:Vec3, offsetX:number, offsetZ:number):Vec3
+--- @field translateX fun(self:vec3Util, origin:Vec3, offsetX:number):Vec3
+--- @field translateZ fun(self:vec3Util, origin:Vec3, offsetZ:number):Vec3
+--- @field drawCircle fun(self:vec3Util, origin:Vec3, color:Color, radius:number):nil
+--- @field drawCircleFull fun(self:vec3Util, origin:Vec3, color:Color, radius:number):nil
+--- @field drawLine fun(self:vec3Util, origin:Vec3, destination:Vec3, color:Color):nil
+--- @field drawBox fun(self:vec3Util, start_pos:Vec3, end_pos:Vec3, width:number, color:Color, thickness:number):nil
+local vec3Util = class({
+
+	print = function(self, point)
+		print("x: " .. point.x .. " y: " .. point.y .. " z: " .. point.z)
+	end,
+
+	rotate = function(self, origin, point, angle)
+		local angle = angle * (math.pi/180)
+		local rotatedX = math.cos(angle) * (point.x - origin.x) - math.sin(angle) * (point.z - origin.z) + origin.x
+		local rotatedZ = math.sin(angle) * (point.x - origin.x) + math.cos(angle) * (point.z - origin.z) + origin.z
+		return vec3:new(rotatedX, point.y ,rotatedZ)
+	end,
+
+	translate = function(self, origin, offsetX, offsetZ)
+		local translatedX = origin.x + offsetX
+		local translatedZ = origin.z + offsetZ
+		return vec3:new(translatedX, origin.y, translatedZ)
+	end,
+
+	translateX = function(self, origin, offsetX)
+		local translatedX = origin.x + offsetX
+		return vec3:new(translatedX, origin.y, origin.z)
+	end,
+
+	translateZ = function(self, origin, offsetZ)
+		local translatedZ = origin.z + offsetZ
+		return vec3:new(origin.x, origin.y, translatedZ)
+	end,
+
+	drawCircle = function(self, origin, color, radius)
+		g_render:circle_3d(origin, color, radius, 2, 100, 2)
+	end,
+
+	drawCircleFull = function(self, origin, color, radius)
+		g_render:circle_3d(origin, color, radius, 3, 100, 2)
+	end,
+
+	drawLine = function(self, origin, destination, color)
+		g_render:line_3d(origin, destination, color, 2)
+	end,
+
+	drawBox = function(self, start_pos, end_pos, width, color, thickness)
+		  -- Calculate the direction vector
+		  local dir = vec3:new(end_pos.x - start_pos.x, 0, end_pos.z - start_pos.z)
+		  dir = dir:normalized()
+		
+		  -- Calculate the half width vector
+		  local half_width_vec = vec3:new(-dir.z * (width), 0, dir.x * (width))
+		  
+		  -- Calculate the corner points of the box
+		  local p1 = vec3:new(start_pos.x + half_width_vec.x, start_pos.y, start_pos.z + half_width_vec.z)
+		  local p2 = vec3:new(start_pos.x - half_width_vec.x, start_pos.y, start_pos.z - half_width_vec.z)
+		  local p3 = vec3:new(end_pos.x + half_width_vec.x, end_pos.y, end_pos.z + half_width_vec.z)
+		  local p4 = vec3:new(end_pos.x - half_width_vec.x, end_pos.y, end_pos.z - half_width_vec.z)
+		
+		  -- Draw lines connecting the corner points
+		  g_render:line_3d(p1, p2, color, thickness)
+		  g_render:line_3d(p1, p3, color, thickness)
+		  g_render:line_3d(p2, p4, color, thickness)
+		  g_render:line_3d(p3, p4, color, thickness)
+		  
+		  -- Draw lines connecting start and end points (vertical edges)
+		  g_render:line_3d(p1, p3, color, thickness)
+		  g_render:line_3d(p2, p4, color, thickness)
+	end,
+})
+
+--------------------------------------------------------------------------------
+
+-- Vec2 Utility
+
+--------------------------------------------------------------------------------
+
+--- @class vec2Util
+--- @field print fun(self:vec2Util, point:Vec2):nil
+--- @field rotate fun(self:vec2Util, origin:Vec2, point:Vec2, angle:number):Vec2
+--- @field translate fun(self:vec2Util, origin:Vec2, offsetX:number, offsetY:number):Vec2
+--- @field translateX fun(self:vec2Util, origin:Vec2, offsetX:number):Vec2
+--- @field translateY fun(self:vec2Util, origin:Vec2, offsetY:number):Vec2
+--- @field drawCircle fun(self:vec2Util, origin:Vec2, color:Color, radius:number):nil
+--- @field drawLine fun(self:vec2Util, origin:Vec2, destination:Vec2, color:Color):nil
+--- @field drawBox fun(self:vec2Util, start_pos:Vec2, end_pos:Vec2, width:number, color:Color, thickness:number):nil
+local vec2Util = class({
+	print = function(self, point)
+		print("x: " .. point.x .. " y: " .. point.y)
+	end,
+
+	rotate = function(self, origin, point, angle)
+		local angle = angle * (math.pi/180)
+		local rotatedX = math.cos(angle) * (point.x - origin.x) - math.sin(angle) * (point.y - origin.y) + origin.x
+		local rotatedY = math.sin(angle) * (point.x - origin.x) + math.cos(angle) * (point.y - origin.y) + origin.y
+		return vec3:new(rotatedX, rotatedY)
+	end,
+
+	translate = function(self, origin, offsetX, offsetY)
+		local translatedX = origin.x + offsetX
+		local translatedY = origin.y + offsetY
+		return vec2:new(translatedX,  translatedY)
+	end,
+
+	translateX = function(self, origin, offsetX)
+		local translatedX = origin.x + offsetX
+		return vec2:new(translatedX,  origin.y)
+	end,
+
+	translateY = function(self, origin, offsetY)
+		local translatedY = origin.y + offsetY
+		return vec2:new(origin.x,  translatedY)
+	end,
+
+	drawCircle = function(self, origin, color, radius)
+		g_render:circle(origin, color, radius, 100)
+	end,
+
+	drawFullCircle = function(self, origin, color, radius)
+		g_render:filled_circle(origin, color, radius, 100)
+	end,
+
+	drawLine = function(self, origin, destination, color)
+		g_render:line(origin, destination, color, 2)
+	end,
+
+	drawBox = function(self, start, size, color)
+		  g_render:box(start, size, color, 0, 2)
+	end,
+})
+
+--------------------------------------------------------------------------------
+
+-- Utility
+
+--------------------------------------------------------------------------------
+
+--- @class util
+--- @field screen Screen
+--- @field screenX number
+--- @field screenY number
+--- @field font string
+--- @field fontSize number
+--- @field Colors table<string, table<string,Color>>
+--- @field textAt fun(self:util, pos:Vec2, color:Color, text:string):nil
+--- @field new fun(self:util):util
+local util = class({
+	screen = nil,
+	screenX = nil,
+	screenY = nil,
+	font = font,
+	fontSize = 30,
+
+	Colors = {
+		solid = {
+			white = color:new(255, 255, 255),
+			black = color:new(0, 0, 0),
+			gray = color:new(128, 128, 128),
+			lightGray = color:new(192, 192, 192),
+			darkGray = color:new(64, 64, 64),
+			red = color:new(255, 0, 0),
+			lightRed = color:new(255, 128, 128),
+			darkRed = color:new(128, 0, 0),
+			orange = color:new(255, 127, 0),
+			lightOrange = color:new(255, 180, 128),
+			darkOrange = color:new(191, 95, 0),
+			yellow = color:new(255, 255, 0),
+			lightYellow = color:new(255, 255, 128),
+			darkYellow = color:new(191, 191, 0),
+			green = color:new(0, 255, 0),
+			lightGreen = color:new(128, 255, 128),
+			darkGreen = color:new(0, 128, 0),
+			cyan = color:new(0, 255, 255),
+			lightCyan = color:new(128, 255, 255),
+			darkCyan = color:new(0, 128, 128),
+			blue = color:new(0, 0, 255),
+			lightBlue = color:new(128, 128, 255),
+			darkBlue = color:new(0, 0, 128),
+			purple = color:new(143, 0, 255),
+			lightPurple = color:new(191, 128, 255),
+			darkPurple = color:new(95, 0, 191),
+			magenta = color:new(255, 0, 255),
+			lightMagenta = color:new(255, 128, 255),
+			darkMagenta = color:new(128, 0, 128),
+		},
+		transparent = {
+			white = color:new(255, 255, 255, 130),
+			black = color:new(0, 0, 0, 130),
+			gray = color:new(128, 128, 128, 130),
+			lightGray = color:new(192, 192, 192, 130),
+			darkGray = color:new(64, 64, 64, 130),
+			red = color:new(255, 0, 0, 200),
+			lightRed = color:new(255, 128, 128, 130),
+			darkRed = color:new(128, 0, 0, 130),
+			orange = color:new(255, 127, 0, 130),
+			lightOrange = color:new(255, 180, 128, 130),
+			darkOrange = color:new(191, 95, 0, 130),
+			yellow = color:new(255, 255, 0, 130),
+			lightYellow = color:new(255, 255, 128, 130),
+			darkYellow = color:new(191, 191, 0, 130),
+			green = color:new(0, 255, 0, 150),
+			lightGreen = color:new(128, 255, 128, 130),
+			darkGreen = color:new(0, 128, 0, 130),
+			cyan = color:new(0, 255, 255, 130),
+			lightCyan = color:new(128, 255, 255, 130),
+			darkCyan = color:new(0, 128, 128, 130),
+			blue = color:new(63, 72, 204, 200),
+			lightBlue = color:new(128, 128, 255, 130),
+			darkBlue = color:new(0, 0, 128, 130),
+			purple = color:new(143, 0, 255, 100),
+			lightPurple = color:new(191, 128, 255, 130),
+			darkPurple = color:new(95, 0, 191, 130),
+			magenta = color:new(255, 0, 255, 130),
+			lightMagenta = color:new(255, 128, 255, 130),
+			darkMagenta = color:new(128, 0, 128, 130),
+		}
+	},
+
+	init = function(self)
+		self.screen = g_render:get_screensize()
+		self.screenX = self.screen.x
+		self.screenY = self.screen.y
+	end,
+
+	textAt = function(self, pos, color, text)
+		g_render:text(pos, color, text, self.font, self.fontSize)
+	end,
+
+
+})
+
+--------------------------------------------------------------------------------
+
 -- Math
+
 --------------------------------------------------------------------------------
 
 local math = class({
@@ -145,21 +395,21 @@ local math = class({
 		local range = self.xHelper:get_aa_range()
 		local hitbox = unit:get_bounding_radius() or 80
 
-		if myHero.champion_name == "Aphelios" and unit:is_hero() and self.buffcache:has_buff(unit, "aphelioscalibrumbonusrangedebuff") then
+		if g_local.champion_name == "Aphelios" and unit:is_hero() and self.buffcache:has_buff(unit, "aphelioscalibrumbonusrangedebuff") then
 			range, hitbox = 1800, 0
-		elseif myHero.champion_name == "Caitlyn" and (self.buffcache:has_buff(unit, "caitlynwsight") or self.buffcache:has_buff(unit, "CaitlynEMissile")) then
+		elseif g_local.champion_name == "Caitlyn" and (self.buffcache:has_buff(unit, "caitlynwsight") or self.buffcache:has_buff(unit, "CaitlynEMissile")) then
 			range = range + 650
-		elseif myHero.champ_name == "Zeri" and myHero:get_spell_book():get_spell_slot(e_spell_slot.q):is_ready() then
+		elseif g_local.champ_name == "Zeri" and g_local:get_spell_book():get_spell_slot(e_spell_slot.q):is_ready() then
 			range, hitbox = 825, 0
-		elseif myHero.champ_name == "Samira" and features.buff_cache:is_immobile(unit.index) then
-			range = std_math.min(650 + 77.5 * (myHero.level - 1), 960)
-		elseif myHero.champ_name == "Karthus" then
+		elseif g_local.champ_name == "Samira" and features.buff_cache:is_immobile(unit.index) then
+			range = std_math.min(650 + 77.5 * (g_local.level - 1), 960)
+		elseif g_local.champ_name == "Karthus" then
 			range = 1035
 		end
-		if raw and not self.xHelper:is_melee(myHero) then
+		if raw and not self.xHelper:is_melee(g_local) then
 			hitbox = 0
 		end
-		local dist = self:dis_sq(myHero.position, unit.position)
+		local dist = self:dis_sq(g_local.position, unit.position)
 		return dist <= (range + hitbox) ^ 2
 	end,
 
@@ -168,6 +418,7 @@ local math = class({
 --------------------------------------------------------------------------------
 
 -- Objects
+
 --------------------------------------------------------------------------------
 
 local objects = class({
@@ -182,7 +433,7 @@ local objects = class({
 	get_enemy_champs = function(self, range)
 		local enemy_champs = {}
 		for i, unit in ipairs(features.entity_list:get_enemies()) do
-			if self.xHelper:is_valid(unit) and (range and self.math:dis_sq(myHero.position, unit.position) <= range ^ 2 or self.math:in_aa_range(unit, true)) then
+			if self.xHelper:is_alive(unit) and self.xHelper:is_valid(unit) and not self.xHelper:is_invincible(unit) and (range and self.math:dis_sq(g_local.position, unit.position) <= range ^ 2 or self.math:in_aa_range(unit, true)) then
 				table.insert(enemy_champs, unit)
 			end
 		end
@@ -195,6 +446,7 @@ local objects = class({
 --------------------------------------------------------------------------------
 
 -- Buffs
+
 --------------------------------------------------------------------------------
 local buffcache = class({
 	get_buff = function(self, unit, name)
@@ -219,6 +471,7 @@ local buffcache = class({
 --------------------------------------------------------------------------------
 
 -- Helper
+
 --------------------------------------------------------------------------------
 
 local xHelper = class({
@@ -253,7 +506,7 @@ local xHelper = class({
 	end,
 
 	get_aa_range = function(self, unit)
-		local unit = unit or myHero
+		local unit = unit or g_local
 		if (unit.champion_name == "Karthus") then
 			return 1035 + unit:get_bounding_radius()
 		end
@@ -310,6 +563,7 @@ local xHelper = class({
 --------------------------------------------------------------------------------
 
 -- Damage Library
+
 --------------------------------------------------------------------------------
 
 local damagelib = class({
@@ -492,7 +746,7 @@ local damagelib = class({
 	end,
 
 	calc_spell_dmg = function(self, spell, source, target, stage, level)
-		local source = source or myHero
+		local source = source or g_local
 		local stage = stage or 1
 		local cache = {}
 
@@ -568,6 +822,7 @@ local damagelib = class({
 --------------------------------------------------------------------------------
 
 -- Database
+
 --------------------------------------------------------------------------------
 
 local database = class({
@@ -778,6 +1033,7 @@ local database = class({
 --------------------------------------------------------------------------------
 
 -- Target Selector // very experimental and wip. needs to be improved.
+
 --------------------------------------------------------------------------------
 
 local Weight = {}
@@ -828,7 +1084,8 @@ local target_selector = class({
 	weight_prio = 0,
 	weight_hp = 0,
 
-
+	lastForceChange = 0,
+	forceTargetMaxDistance = 240,
 
 	init = function(self, xHelper, math, objects, damagelib)
 		self.xHelper = xHelper
@@ -845,6 +1102,8 @@ local target_selector = class({
 
 		self.focus_target = self.ts_sec:checkbox("click to focus", g_config:add_bool(true, "focus_target"))
 
+		self.forceTargetMaxDistance = self.ts_sec:slider_int("max distance", g_config:add_int(240, "force_target_max_distance"), 50, 500, 10)
+
 		self.draw_target = self.drawings_sec:checkbox("visualize targets", g_config:add_bool(true, "draw_targets"))
 
 		self.draw_weight = self.debug_sec:checkbox("draw weight", g_config:add_bool(false, "draw_weight"))
@@ -858,10 +1117,13 @@ local target_selector = class({
 		self.weight_dmg = self.weight_sec:slider_int("damage", g_config:add_int(10, "weight_damage"), 0, 100, 1)
 		self.weight_prio = self.weight_sec:slider_int("priority", g_config:add_int(10, "weight_priority"), 0, 100, 1)
 		self.weight_hp = self.weight_sec:slider_int("health", g_config:add_int(15, "weight_health"), 0, 100, 1)
+		self.lastForceChange = g_time
 	end,
+
 	GET_STATUS = function(self)
 		return self.ts_enabled:get_value()
 	end,
+
 	FORCED_TARGET = nil,
 	PRIORITY_LIST = {
 		Aatrox = 3,
@@ -1034,16 +1296,18 @@ local target_selector = class({
 			return b.health / a.health
 		end
 	},
-
+	
 	get_cache = function(self, range)
 		return self.TARGET_CACHE[range]
 	end,
+
 	refresh_targets = function(self, range)
+
 		if not self.TARGET_CACHE[range] then
 			self.TARGET_CACHE[range] = { enemies = {} }
 		end
 
-		local all_enemies = self.objects:get_enemy_champs(range)
+		local all_enemies = objects:get_enemy_champs(range)
 		local enemies = {}
 
 		for _, enemy in ipairs(all_enemies) do
@@ -1065,14 +1329,14 @@ local target_selector = class({
 			local target = self.TARGET_CACHE[range].enemies[i] or {}
 			local new_weight = {}
 
-			local d = self.math:dis_sq(myHero.position, enemies[i].position)
+			local d = self.math:dis_sq(g_local.position, enemies[i].position)
 			local w = 10000 / (1 + std_math.sqrt(d))
 			if not self.xHelper:is_melee(enemies[i]) then w = w * self.weight_dis:get_value() / 10 else w = w *
 				(self.weight_dis:get_value() / 10 + 1) end
 
 			local factor = { damage = self.weight_dmg:get_value(), prio = self.weight_prio:get_value() / 10,
 				health = self.weight_hp:get_value() / 10 }
-			new_weight.damage = (self.damagelib:calc_dmg(myHero, enemies[i], 100) / (1 + enemies[i].health) * 20) *
+			new_weight.damage = (self.damagelib:calc_dmg(g_local, enemies[i], 100) / (1 + enemies[i].health) * 20) *
 			factor.damage
 			local mod = { 1, 1.5, 1.75, 2, 2.5 }
 			new_weight.priority = mod[self.PRIORITY_LIST[enemies[i].champion_name] or 3] * factor.prio
@@ -1087,35 +1351,37 @@ local target_selector = class({
 
 		table.sort(self.TARGET_CACHE[range].enemies, function(a, b) return a.weight.total > b.weight.total end)
 
-		if not self.FORCED_TARGET == nil then
-			local target = self.FORCED_TARGET
-			local new_weight = {}
-			new_weight.distance = 1000000
-			new_weight.damage = 1000000
-			new_weight.priority = 1000000
-			new_weight.health = 1000000
-			new_weight.total = 1000000
-			target.weight = new_weight
-			self.TARGET_CACHE[range].enemies[1] = target
-		end
 	end,
 
 	get_main_target = function(self, range)
 		range = range or 9999999
 		self:refresh_targets(range)
 		if #self.TARGET_CACHE[range].enemies == 0 then return nil end
-		return self.TARGET_CACHE[range].enemies[1].target
+		local target = features.entity_list:get_by_index(self.TARGET_CACHE[range].enemies[1].target.index)
+		if target and not xHelper:is_invincible(target) and xHelper:is_alive(target) and xHelper:is_valid(target) then return nil end
+		return target
 	end,
 
 	get_second_target = function(self, range)
 		range = range or 9999999
 		self:refresh_targets(range)
 		if #self.TARGET_CACHE[range].enemies < 2 then return nil end
-		return self.TARGET_CACHE[range].enemies[2].target
+		return features.entity_list:get_by_index(self.TARGET_CACHE[range].enemies[2].target.index)
 	end,
 
-	get_forced_target = function(self, range)
+	get_forced_target = function(self)
 		return self.FORCED_TARGET
+	end,
+
+	update_forced_target = function(self)
+		if self.FORCED_TARGET then
+			local enemy = features.entity_list:get_by_index(self.FORCED_TARGET.index)
+			if enemy and xHelper:is_alive(enemy) and xHelper:is_valid(enemy) and not xHelper:is_invincible(enemy) then
+				self.FORCED_TARGET = enemy
+			else 
+				self.FORCED_TARGET = nil
+			end
+		end
 	end,
 
 	get_targets = function(self, range)
@@ -1124,13 +1390,13 @@ local target_selector = class({
 	end,
 
 	force_target = function(self)
-		if g_input:is_key_pressed(1) then
+		if self.focus_target:get_value() and self:GET_STATUS() and g_input:is_key_pressed(e_key.lbutton) and g_time - self.lastForceChange >= 0.3 then
 			local target = nil
 			local mousePos = g_input:get_cursor_position_game()
 			local lowestDistance = std_math.huge
-			local maxDistance = 250
+			local maxDistance = self.forceTargetMaxDistance:get_value() or 240
 			for i, enemy in ipairs(features.entity_list:get_enemies()) do
-				if self.xHelper:is_valid(enemy) then
+				if xHelper:is_alive(enemy) and xHelper:is_valid(enemy) and not xHelper:is_invincible(enemy) then
 					local dist = mousePos:dist_to(enemy.position)
 					if dist < maxDistance and dist < lowestDistance then
 						target = enemy
@@ -1138,37 +1404,56 @@ local target_selector = class({
 					end
 				end
 			end
-			if self.FORCED_TARGET and target and self.FORCED_TARGET.index == target.index then
+
+			if not target or ( target and self.FORCED_TARGET and self.FORCED_TARGET.index == target.index ) then
 				self.FORCED_TARGET = nil
+				self.lastForceChange = g_time
 			else
-				if target then
-					self.FORCED_TARGET = target
-				end
+				self.FORCED_TARGET = target
+				self.lastForceChange = g_time
 			end
 		end
 	end,
 
 	draw = function(self)
-		if not self.ts_enabled:get_value() then return end
+		if not self:GET_STATUS() then return end
 		local cache = self:get_cache(9999999)
 		local forced = self:get_forced_target()
 
-		if forced and self.draw_target:get_value() and forced:is_visible() then
-			g_render:circle_3d(forced.position, color:new(255, 0, 255, 55), 100, 3, 55, 1)
+		if forced and self.focus_target:get_value() and self.draw_target:get_value() then
+			-- local targetHpBarPos = forced:get_hpbar_position()
+			-- local left = vec2Util:translate(targetHpBarPos, util.screenX * -0.02, util.screenY * -0.15)
+			-- local right = vec2Util:translate(targetHpBarPos, util.screenX * 0.02, util.screenY * -0.15)
+			-- local center = vec2Util:translate(targetHpBarPos, 0, util.screenY * -0.1)
+
+			-- local textSize = g_render:get_text_size("FORCED", util.font, util.fontSize + 5)
+			-- local boxPaddingX = util.screenX * 0.01
+			-- local boxPaddingY = util.screenY * 0.01
+			-- local boxSize = vec2:new(textSize.x + boxPaddingX, textSize.y + boxPaddingY)
+			-- local textPos = vec2Util:translate(targetHpBarPos, textSize.x * -0.5, util.screenY * 0.125)
+			-- local boxPos = vec2Util:translate(textPos, boxPaddingX * -0.5, boxPaddingY * -0.5)
+			-- g_render:filled_box(boxPos, boxSize, util.Colors.solid.gray, 5)
+			-- g_render:text(textPos, util.Colors.solid.cyan, "FORCED", util.font, util.fontSize + 5)
+			-- g_render:filled_triangle(left, right, center, util.Colors.solid.yellow)
+
+			-- vec3Util:drawCircle(forced.position, util.Colors.solid.magenta, 100)
+			vec3Util:drawCircleFull(forced.position, util.Colors.transparent.magenta, forced:get_bounding_radius() or 100)
 		end
 		if cache and cache.enemies then
 			for i, data in ipairs(cache.enemies) do
-				if self.draw_target:get_value() and data.target:is_visible() then
+				local target = features.entity_list:get_by_index(data.target.index)
+				if self.draw_target:get_value() and target:is_visible() then
 					if i == 1 and not forced then
-						g_render:circle_3d(data.target.position, color:new(255, 0, 0, 55), 100, 3, 55, 1)
+						-- g_render:circle_3d(target.position, color:new(255, 0, 0, 55), 100, 3, 55, 1)
+						vec3Util:drawCircleFull(target.position, color:new(255, 0, 0, 55), target:get_bounding_radius() or 100)
 					end
 				end
 
 				if self.draw_weight:get_value() then
-					if data.target.position:to_screen() ~= nil then
+					if target.position:to_screen() ~= nil then
 						g_render:text(
-							vec2:new(data.target.position:to_screen().x + 60,
-								data.target.position:to_screen().y - 10),
+							vec2:new(target.position:to_screen().x + 60,
+							target.position:to_screen().y - 10),
 							color:new(255, 255, 255),
 							data.weight.total .. "",
 							nil,
@@ -1183,22 +1468,16 @@ local target_selector = class({
 	tick = function(self)
 		if not self.ts_enabled:get_value() then return end
 		self:force_target()
-		local forced = self:get_forced_target()
-		local target = self:get_main_target()
-		if forced then
-			target = forced
-		end
-		if target ~= nil then
-			-- features.target_selector:force_target(target.index)
-		else
-			-- features.target_selector:force_target(-1)
-		end
+		self:update_forced_target()
+		self:get_main_target()
 	end
 
 })
 
 --------------------------------------------------------------------------------
+
 -- debug
+
 --------------------------------------------------------------------------------
 
 local debug = class({
@@ -1333,10 +1612,10 @@ local debug = class({
 
 })
 
-
-
 --------------------------------------------------------------------------------
+
 -- Permashow
+
 --------------------------------------------------------------------------------
 
 local permashow = class({
@@ -1402,6 +1681,7 @@ local permashow = class({
 			height = height
 		}
 	end,
+
 	update_keys = function(self)
 		local key = -1
 		for _, hotkey in ipairs(self.hotkeys_ordered) do
@@ -1568,6 +1848,7 @@ local permashow = class({
 			self.hotkeys_id[identifier] = newHotkey
 		end
 	end,
+
 	update = function(self, identifier, options)
 		print("updating " .. identifier)
 		if self.hotkeys_id[identifier] then
@@ -1582,12 +1863,10 @@ local permashow = class({
 
 })
 
-
-
-
 --------------------------------------------------------------------------------
 
 -- Callbacks
+
 --------------------------------------------------------------------------------
 
 local x = class({
@@ -1600,7 +1879,10 @@ local x = class({
 	debug = debug:new(),
 	database = database:new(xHelper),
 	damagelib = damagelib:new(xHelper, math, database, buffcache),
+	util = util:new(),
 	target_selector = target_selector:new(xHelper, math, objects, damagelib),
+	vec2_util = vec2Util,
+	vec3_util = vec3Util,
 
 	init = function(self)
 		cheat.on("features.pre_run", function()
@@ -1619,7 +1901,6 @@ local x = class({
 	end,
 
 })
-
 
 -- print("-==--=-=-=-= X core Updater: =--=-=-==--=-=-=-=-=")
 check_for_update(x)
