@@ -1,4 +1,4 @@
-XCORE_VERSION = "1.0.7"
+XCORE_VERSION = "1.0.8"
 XCORE_LUA_NAME = "xCore.lua"
 XCORE_REPO_BASE_URL = "https://raw.githubusercontent.com/xAIO-Slotted/xCore/main/"
 XCORE_REPO_SCRIPT_PATH = XCORE_REPO_BASE_URL .. XCORE_LUA_NAME
@@ -542,10 +542,21 @@ local xHelper = class({
 	end,
 
 	is_alive = function(self, unit)
-		return unit and not unit:is_invalid_object() and unit:is_visible() and unit:is_alive() and unit:is_targetable()
-			and not self.buffcache:has_buff(unit, "sionpassivezombie")
-			and not unit:get_object_name():lower():find("corpse")
-			and unit.position
+		local alive = unit and not unit:is_invalid_object() and unit:is_visible() and unit:is_alive() and unit:is_targetable()
+		and not self.buffcache:has_buff(unit, "sionpassivezombie")
+		and not unit:get_object_name():lower():find("corpse")
+		and unit.position ~= nil
+		
+		-- print("checking alive: " .. tostring(unit:get_object_name()))
+		-- print("invalid: " ..tostring( unit:is_invalid_object()))
+		-- print("visible: " .. tostring(unit:is_visible()))
+		-- print("alive: " .. tostring(unit:is_alive()))
+		-- print("targetable: " .. tostring(unit:is_targetable()))
+		-- print("sion: " .. tostring(self.buffcache:has_buff(unit, "sionpassivezombie")))
+		-- print("corpse: " .. tostring(unit:get_object_name():lower():find("corpse")))
+		-- print("pos: " .. tostring(unit.position ~= nil))
+		-- print("we will return: " .. tostring(alive))
+		return alive
 	end
 	,
 
@@ -1358,8 +1369,11 @@ local target_selector = class({
 		self:refresh_targets(range)
 		if #self.TARGET_CACHE[range].enemies == 0 then return nil end
 		local target = features.entity_list:get_by_index(self.TARGET_CACHE[range].enemies[1].target.index)
-		if target and not xHelper:is_invincible(target) and xHelper:is_alive(target) and xHelper:is_valid(target) then return nil end
-		return target
+		local good_target = target and not xHelper:is_invincible(target) and tostring(xHelper:is_alive(target)) and xHelper:is_valid(target)
+
+
+		if target and good_target then return target end
+		return nil
 	end,
 
 	get_second_target = function(self, range)
