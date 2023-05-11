@@ -1,4 +1,4 @@
-XCORE_VERSION = "1.0.8"
+XCORE_VERSION = "1.0.9"
 XCORE_LUA_NAME = "xCore.lua"
 XCORE_REPO_BASE_URL = "https://raw.githubusercontent.com/xAIO-Slotted/xCore/main/"
 XCORE_REPO_SCRIPT_PATH = XCORE_REPO_BASE_URL .. XCORE_LUA_NAME
@@ -428,6 +428,10 @@ local objects = class({
 	init = function(self, xHelper, math)
 		self.xHelper = xHelper
 		self.math = math
+	end,
+
+	get_bounding_radius = function(self, unit)
+		return unit:get_bounding_radius() or 45
 	end,
 
 	get_enemy_champs = function(self, range)
@@ -1451,7 +1455,8 @@ local target_selector = class({
 			-- g_render:filled_triangle(left, right, center, util.Colors.solid.yellow)
 
 			-- vec3Util:drawCircle(forced.position, util.Colors.solid.magenta, 100)
-			vec3Util:drawCircleFull(forced.position, util.Colors.transparent.magenta, forced:get_bounding_radius() or 100)
+			print("ts says br is " .. objects:get_bounding_radius(forced) )
+			vec3Util:drawCircleFull(forced.position, util.Colors.transparent.magenta, objects:get_bounding_radius(forced) or 100)
 		end
 		if cache and cache.enemies then
 			for i, data in ipairs(cache.enemies) do
