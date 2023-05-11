@@ -628,7 +628,7 @@ local damagelib = class({
 			args.raw_physical = args.raw_physical
 				+ args.source.max_mana * 0.025
 		end,
-		[3115] = function(self, args) -- Nashor's Tooth
+		[3115] = function(self, args) -- Nashor's Tooth_se
 			args.raw_magical = args.raw_magical + 15
 				+ 0.2 * args.source:get_ability_power()
 		end,
@@ -1455,7 +1455,7 @@ local target_selector = class({
 			-- g_render:filled_triangle(left, right, center, util.Colors.solid.yellow)
 
 			-- vec3Util:drawCircle(forced.position, util.Colors.solid.magenta, 100)
-			print("ts says br is " .. objects:get_bounding_radius(forced) )
+			
 			vec3Util:drawCircleFull(forced.position, util.Colors.transparent.magenta, objects:get_bounding_radius(forced) or 100)
 		end
 		if cache and cache.enemies then
@@ -1884,6 +1884,102 @@ local permashow = class({
 
 --------------------------------------------------------------------------------
 
+-- visualizer
+
+--------------------------------------------------------------------------------
+local visualizer = class({
+	xHelper = nil,
+	math = nil,
+	objects = nil,
+	damagelib = nil,
+	add = menu.get_main_window():push_navigation("xDamageVisuals", 10000),
+	visualizer_split_colors = nil,
+	visualizer_show_combined_bars = nil,
+	visualizer_show_stacked_bars = nil,
+	visualizer_visualize_autos = nil,
+	visualizer_autos_slider = nil,
+	visualizer_visualize_q = nil,
+	visualizer_visualize_w = nil,
+	visualizer_visualize_e = nil,
+	visualizer_visualize_r = nil,
+	visualizer_show_text = nil,
+  
+	init = function(self, xHelper, math, objects, damagelib)
+	  self.nav = menu.get_main_window():find_navigation("xDamageVisuals")
+	  self.vis_sect = self.nav:add_section("visualizer")
+	  
+	  self.visualizer_split_colors = self.vis_sect:checkbox("^ Split colors", g_config:add_bool(true, "split_colors"))
+	  self.visualizer_show_combined_bars = self.vis_sect:checkbox("Show combined bars", g_config:add_bool(true, "show_combined_bars"))
+	  self.visualizer_show_stacked_bars = self.vis_sect:checkbox("Show stacked bars", g_config:add_bool(true, "show_stacked_bars"))
+	  self.visualizer_visualize_autos = self.vis_sect:checkbox("Visualize Autos", g_config:add_bool(true, "visualize_autos"))
+	  self.visualizer_autos_slider = self.vis_sect:slider_int("x", g_config:add_int(1, "autos_slider"), 1, 5, 1)
+	  self.visualizer_visualize_q = self.vis_sect:checkbox("Visualize Q", g_config:add_bool(true, "visualize_q"))
+	  self.visualizer_visualize_w = self.vis_sect:checkbox("Visualize W", g_config:add_bool(true, "visualize_w"))
+	  self.visualizer_visualize_e = self.vis_sect:checkbox("Visualize E", g_config:add_bool(true, "visualize_e"))
+	  self.visualizer_visualize_r = self.vis_sect:checkbox("Visualize R", g_config:add_bool(true, "visualize_r"))
+	  self.visualizer_show_text = self.vis_sect:checkbox("Show text", g_config:add_bool(true, "visualizer_show_text"))
+	end,
+    get_visualizer_split_colors_status = function(self)
+		return self.visualizer_split_colors:get_value()
+	  end,
+	
+	  get_visualizer_show_combined_bars_status = function(self)
+		return self.visualizer_show_combined_bars:get_value()
+	  end,
+	
+	  get_visualizer_show_stacked_bars_status = function(self)
+		return self.visualizer_show_stacked_bars:get_value()
+	  end,
+	
+	  get_visualizer_visualize_autos_status = function(self)
+		return self.visualizer_visualize_autos:get_value()
+	  end,
+	
+	  get_visualizer_autos_slider_status = function(self)
+		return self.visualizer_autos_slider:get_value()
+	  end,
+	
+	  get_visualizer_visualize_q_status = function(self)
+		return self.visualizer_visualize_q:get_value()
+	  end,
+	
+	  get_visualizer_visualize_w_status = function(self)
+		return self.visualizer_visualize_w:get_value()
+	  end,
+	
+	  get_visualizer_visualize_e_status = function(self)
+		return self.visualizer_visualize_e:get_value()
+	  end,
+	
+	  get_visualizer_visualize_r_status = function(self)
+		return self.visualizer_visualize_r:get_value()
+	  end,
+	
+	  get_visualizer_show_text_status = function(self)
+		return self.visualizer_show_text:get_value()
+	  end,
+	  
+	draw = function(self)
+	  -- Implementation goes here
+	end,
+  
+	tick = function(self)
+	  -- Implementation goes here
+	end,
+  
+	register = function(self, identifier, name, key, is_toggle, cfg)
+	  -- Implementation goes here
+	end,
+  
+	update = function(self, identifier, options)
+	  -- Implementation goes here
+	end,
+  })
+  
+
+
+--------------------------------------------------------------------------------
+
 -- Callbacks
 
 --------------------------------------------------------------------------------
@@ -1891,6 +1987,7 @@ local permashow = class({
 local x = class({
 	VERSION = "1.0",
 	permashow = permashow:new(),
+	visualizer = visualizer:new(),
 	buffcache = buffcache:new(),
 	helper = xHelper:new(buffcache),
 	math = math:new(xHelper, buffcache),
