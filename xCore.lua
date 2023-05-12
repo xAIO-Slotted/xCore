@@ -442,9 +442,39 @@ local objects = class({
 			end
 		end
 		return enemy_champs
+	end,	
+	is_ready = function(self, slot, unit)
+		unit = unit or g_local
+		return unit:get_spell_book():get_spell_slot(slot):is_ready()
 	end,
-
-
+	has_enough_mana = function(self, slot, unit)
+		unit = unit or g_local
+		local spell = unit:get_spell_book():get_spell_slot(slot)
+		local level = spell.Level or 0
+		local cost = spell:get_mana_cost()[level] or 0
+	  
+		if unit and spell and cost then
+		  if unit.mana >= cost then
+			return true
+		  else
+			return false
+		  end
+		end	
+	end, 
+	can_cast = function (self, spell, unit)	
+		unit = unit or g_local
+		if self:is_ready(spell, unit) and self:has_enough_mana(spell, unit) then
+		  return true
+		end
+		return false
+	  end,
+	get_spell_level = function (self, spell, unit)	
+		unit = unit or g_local
+		local spell = unit:get_spell_book():get_spell_slot(spell)
+		local level = spell.Level or 0
+		return level
+	  end,
+	  
 })
 
 --------------------------------------------------------------------------------
@@ -1888,6 +1918,8 @@ local permashow = class({
 
 --------------------------------------------------------------------------------
 local visualizer = class({
+	Last_cast_time = g_time,
+	debug = nil,
 	xHelper = nil,
 	math = nil,
 	objects = nil,
@@ -1903,78 +1935,256 @@ local visualizer = class({
 	visualizer_visualize_e = nil,
 	visualizer_visualize_r = nil,
 	visualizer_show_text = nil,
-  
-	init = function(self, xHelper, math, objects, damagelib)
-	  self.nav = menu.get_main_window():find_navigation("xDamageVisuals")
-	  self.vis_sect = self.nav:add_section("visualizer")
-	  
-	  self.visualizer_split_colors = self.vis_sect:checkbox("^ Split colors", g_config:add_bool(true, "split_colors"))
-	  self.visualizer_show_combined_bars = self.vis_sect:checkbox("Show combined bars", g_config:add_bool(true, "show_combined_bars"))
-	  self.visualizer_show_stacked_bars = self.vis_sect:checkbox("Show stacked bars", g_config:add_bool(true, "show_stacked_bars"))
-	  self.visualizer_visualize_autos = self.vis_sect:checkbox("Visualize Autos", g_config:add_bool(true, "visualize_autos"))
-	  self.visualizer_autos_slider = self.vis_sect:slider_int("x", g_config:add_int(1, "autos_slider"), 1, 5, 1)
-	  self.visualizer_visualize_q = self.vis_sect:checkbox("Visualize Q", g_config:add_bool(true, "visualize_q"))
-	  self.visualizer_visualize_w = self.vis_sect:checkbox("Visualize W", g_config:add_bool(true, "visualize_w"))
-	  self.visualizer_visualize_e = self.vis_sect:checkbox("Visualize E", g_config:add_bool(true, "visualize_e"))
-	  self.visualizer_visualize_r = self.vis_sect:checkbox("Visualize R", g_config:add_bool(true, "visualize_r"))
-	  self.visualizer_show_text = self.vis_sect:checkbox("Show text", g_config:add_bool(true, "visualizer_show_text"))
+
+	init = function(self, debug, xHelper, math, objects, damagelib)
+		self.Last_cast_time = g_time
+		self.xHelper = xHelper
+		self.math = math
+		self.debug = debug
+		self.damagelib = damagelib
+
+		if self.damagelib == nil then
+			print("bad bad bad")
+		end
+		self.objects = objects
+		-- Menus
+		self.nav = menu.get_main_window():find_navigation("xDamageVisuals")
+		self.vis_sect = self.nav:add_section("visualizer")
+		self.checkboxVisualDmg = self.vis_sect:checkbox("damage visual", g_config:add_bool(true, "visualize damage"))
+		self.visualizer_split_colors = self.vis_sect:checkbox("^ Split colors", g_config:add_bool(true, "split_colors"))
+		self.visualizer_show_combined_bars = self.vis_sect:checkbox("Show combined bars",
+			g_config:add_bool(true, "show_combined_bars"))
+		self.visualizer_show_stacked_bars = self.vis_sect:checkbox("Show stacked bars",
+			g_config:add_bool(true, "show_stacked_bars"))
+		self.visualizer_visualize_autos = self.vis_sect:checkbox("Visualize Autos",
+			g_config:add_bool(true, "visualize_autos"))
+		self.visualizer_autos_slider = self.vis_sect:slider_int("x", g_config:add_int(1, "autos_slider"), 1, 5, 1)
+		self.visualizer_visualize_q = self.vis_sect:checkbox("Visualize Q", g_config:add_bool(true, "visualize_q"))
+		self.visualizer_visualize_w = self.vis_sect:checkbox("Visualize W", g_config:add_bool(true, "visualize_w"))
+		self.visualizer_visualize_e = self.vis_sect:checkbox("Visualize E", g_config:add_bool(true, "visualize_e"))
+		self.visualizer_visualize_r = self.vis_sect:checkbox("Visualize R", g_config:add_bool(true, "visualize_r"))
+		self.visualizer_show_text = self.vis_sect:checkbox("Show text", g_config:add_bool(true, "visualizer_show_text"))
 	end,
-    get_visualizer_split_colors_status = function(self)
+	get_visualizer_split_colors_status = function(self)
 		return self.visualizer_split_colors:get_value()
-	  end,
-	
-	  get_visualizer_show_combined_bars_status = function(self)
+	end,
+
+	get_visualizer_show_combined_bars_status = function(self)
 		return self.visualizer_show_combined_bars:get_value()
-	  end,
-	
-	  get_visualizer_show_stacked_bars_status = function(self)
+	end,
+
+	get_visualizer_show_stacked_bars_status = function(self)
 		return self.visualizer_show_stacked_bars:get_value()
-	  end,
-	
-	  get_visualizer_visualize_autos_status = function(self)
+	end,
+
+	get_visualizer_visualize_autos_status = function(self)
 		return self.visualizer_visualize_autos:get_value()
-	  end,
-	
-	  get_visualizer_autos_slider_status = function(self)
+	end,
+
+	get_visualizer_autos_slider_status = function(self)
 		return self.visualizer_autos_slider:get_value()
-	  end,
-	
-	  get_visualizer_visualize_q_status = function(self)
+	end,
+
+	get_visualizer_visualize_q_status = function(self)
 		return self.visualizer_visualize_q:get_value()
-	  end,
-	
-	  get_visualizer_visualize_w_status = function(self)
+	end,
+
+	get_visualizer_visualize_w_status = function(self)
 		return self.visualizer_visualize_w:get_value()
-	  end,
-	
-	  get_visualizer_visualize_e_status = function(self)
+	end,
+
+	get_visualizer_visualize_e_status = function(self)
 		return self.visualizer_visualize_e:get_value()
-	  end,
-	
-	  get_visualizer_visualize_r_status = function(self)
+	end,
+
+	get_visualizer_visualize_r_status = function(self)
 		return self.visualizer_visualize_r:get_value()
-	  end,
-	
-	  get_visualizer_show_text_status = function(self)
+	end,
+
+	get_visualizer_show_text_status = function(self)
 		return self.visualizer_show_text:get_value()
+	end,
+	render_damage_bar = function(self, enemy, combodmg, aadmg, wdmg, rdmg, bar_height, yOffset)
+		yOffset = yOffset or 0
+		local screen = g_render:get_screensize()
+		local width_offset = 0.055
+		local base_x_offset = 0.43
+		local base_y_offset_ratio = 0.002
+		local bar_width = (screen.x * width_offset)
+		local base_position = enemy:get_hpbar_position()
+
+		local base_y_offset = screen.y * base_y_offset_ratio
+
+		base_position.x = base_position.x - bar_width * base_x_offset
+		base_position.y = base_position.y - bar_height * base_y_offset + yOffset
+
+		local function DrawDamageSection(color, damage, remaining_health)
+			local damage_mod = damage / enemy.max_health
+			local box_start_x = base_position.x + bar_width * remaining_health
+			local box_size_x = (bar_width * damage_mod) * -1
+
+			-- Prevent the damage bar from going beyond the left bound of the enemy HP bar
+			if box_start_x + box_size_x < base_position.x then
+				box_size_x = base_position.x - box_start_x
+			end
+
+			local box_start = vec2:new(box_start_x, base_position.y)
+			local box_size = vec2:new(box_size_x, bar_height)
+			g_render:filled_box(box_start, box_size, color)
+			return remaining_health - damage_mod
+		end
+
+		local remaining_health = enemy.health / enemy.max_health
+		if combodmg > 0 then
+			remaining_health = DrawDamageSection(self.debug.Colors.transparent.purple, combodmg, remaining_health)
+		end
+		if aadmg > 0 then
+			remaining_health = DrawDamageSection(self.debug.Colors.transparent.green, aadmg, remaining_health)
+		end
+		if wdmg > 0 then
+			remaining_health = DrawDamageSection(self.debug.Colors.transparent.blue, wdmg, remaining_health)
+		end
+		if rdmg > 0 then
+			remaining_health = DrawDamageSection(self.debug.Colors.transparent.red, rdmg, remaining_health)
+		end
+	end,
+	render_stacked_bars = function(self, enemy, aadmg, wdmg, rdmg)
+		local screen = g_render:get_screensize()
+		local height_offset = 0.010
+		local bar_height = (screen.y * height_offset)
+
+
+		local combined_aadmg = aadmg
+		if self.visualizer_visualize_autos:get_value() then
+			self:render_damage_bar(enemy, 0, aadmg, 0, 0, bar_height, 0)
+		end
+
+		if self.visualizer_visualize_w:get_value() then
+			self:render_damage_bar(enemy, 0, 0, wdmg, 0, bar_height, -15)
+			combined_aadmg = combined_aadmg + wdmg
+		end
+
+		if self.visualizer_visualize_r:get_value() then
+			self:render_damage_bar(enemy, 0, 0, 0, rdmg, bar_height, 15)
+			combined_aadmg = combined_aadmg + rdmg
+		end
+	end,
+	render_combined_bars = function(self, enemy, aadmg, wdmg, rdmg)
+		local screen = g_render:get_screensize()
+		local height_offset = 0.010
+		local bar_height = (screen.y * height_offset)
+
+		-- if any of the jmenu visualizers are off i want to set the dmg to 0 so it doesnt render on the combined bar
+		if not self.visualizer_visualize_autos:get_value() then
+			aadmg = 0
+		end
+		if not self.visualizer_visualize_w:get_value() then
+			wdmg = 0
+		end
+		if not self.visualizer_visualize_r:get_value() then
+			rdmg = 0
+		end
+		local combodmg = aadmg + wdmg + rdmg
+
+		if self.visualizer_split_colors:get_value() then
+			self:render_damage_bar(enemy, 0, aadmg, wdmg, rdmg, bar_height, 0)
+		else
+			self:render_damage_bar(enemy, combodmg, 0, 0, 0, bar_height, 0)
+		end
+	end,
+	display_killable_text = function (self, enemy, nmehp, aadmg, wdmg, rdmg)
+		
+		local pos = enemy.position
+		if pos:to_screen() ~= nil then
+			local spells_text = ""
+			local killable_text = ""
+
+			local autos_to_kill = std_math.ceil(nmehp / aadmg)
+			if nmehp <= aadmg then
+			killable_text = "AA Kill"
+			elseif nmehp <= wdmg then
+			killable_text = "W Kill"
+			elseif nmehp <= rdmg + wdmg then
+			killable_text = "Combo Kill"
+			if self.visualizer_visualize_w:get_value() then
+				spells_text = "W"
+			end
+			if self.visualizer_visualize_r:get_value() then
+				spells_text = spells_text .. (spells_text ~= "" and " + " or "") .. "R"
+			end
+			else
+			if self.objects:can_cast(e_spell_slot.w) and self.visualizer_visualize_w:get_value() then
+				autos_to_kill = std_math.ceil((nmehp - wdmg) / aadmg)
+				spells_text = "W"
+			end
+			if self.objects:can_cast(e_spell_slot.r) and self.visualizer_visualize_r:get_value() then
+				autos_to_kill = std_math.ceil((nmehp - rdmg) / aadmg)
+				spells_text = (spells_text ~= "" and " + " or "") .. "R"
+			end
+			if self.objects:can_cast(e_spell_slot.w) and self.objects:can_cast(e_spell_slot.r) and self.visualizer_visualize_w:get_value() and self.visualizer_visualize_r:get_value() then
+				autos_to_kill = std_math.ceil((nmehp - wdmg - rdmg) / aadmg)
+				spells_text = "W + R"
+			end
+			killable_text = spells_text .. (spells_text ~= "" and " + " or "") .. tostring(autos_to_kill) .. " AA to kill"
+			end
+			if killable_text ~= "" then
+			local killable_pos = vec2:new(pos:to_screen().x, pos:to_screen().y - 80)
+			g_render:text(killable_pos, color:new(255, 255, 255), killable_text, Font, 30)
+			end
+		end
+	end,
+	get_damage_array= function (self, enemy)
+		local base_auto_dmg = self.damagelib:calc_aa_dmg(g_local, enemy)
+		local aadmg = 0
+		local wdmg = 0
+		local rdmg = 0
+		local aadmg = base_auto_dmg * self.visualizer_autos_slider:get_value()
+		-- if is
+		if self.objects:can_cast(e_spell_slot.w) then
+		  wdmg = self.damagelib:calc_spell_dmg(e_spell_slot.w, g_local, enemy, 1, self.objects:get_spell_level(e_spell_slot.w))
+		end
+		if self.objects:can_cast(e_spell_slot.r) then
+		  rdmg = self.damagelib:calc_spell_dmg(e_spell_slot.r, g_local, enemy, 1, self.objects:get_spell_level(e_spell_slot.r))
+		end
+		return aadmg, wdmg, rdmg
 	  end,
-	  
+	  Visualize_damage = function (self, enemy)
+		local nmehp = enemy.health
+		local aadmg, wdmg, rdmg = self:get_damage_array(enemy)
+
+		-- combined bars
+		if self.visualizer_show_combined_bars:get_value() then
+			self:render_combined_bars(enemy,  aadmg, wdmg, rdmg)
+		end
+	-- stacked bars
+		if self.visualizer_show_stacked_bars:get_value() then
+			self:render_stacked_bars(enemy, aadmg, wdmg, rdmg)
+		end
+  -- killable text
+		if self.visualizer_show_text:get_value() then
+			self:display_killable_text(enemy, nmehp, self.damagelib:calc_aa_dmg(g_local, enemy), wdmg, rdmg)
+		end
+	end,
 	draw = function(self)
-	  -- Implementation goes here
+		for i, enemy in pairs(features.entity_list:get_enemies()) do
+		  if enemy and self.xHelper:is_alive(enemy) and enemy:is_visible() and g_local.position:dist_to(enemy.position) < 3000 then
+			self:Visualize_damage(enemy)
+		  end
+		end
 	end,
-  
 	tick = function(self)
-	  -- Implementation goes here
+
+		-- Implementation goes here
 	end,
-  
+
 	register = function(self, identifier, name, key, is_toggle, cfg)
-	  -- Implementation goes here
+		-- Implementation goes here
 	end,
-  
+
 	update = function(self, identifier, options)
-	  -- Implementation goes here
+		-- Implementation goes here
 	end,
-  })
+})
   
 
 
@@ -1987,7 +2197,6 @@ local visualizer = class({
 local x = class({
 	VERSION = "1.0",
 	permashow = permashow:new(),
-	visualizer = visualizer:new(),
 	buffcache = buffcache:new(),
 	helper = xHelper:new(buffcache),
 	math = math:new(xHelper, buffcache),
@@ -2001,6 +2210,12 @@ local x = class({
 	vec3_util = vec3Util,
 
 	init = function(self)
+		print("=-=--=-=-=-=-==-=--==-=-=--=-==--==-=--=-=--=-=--=-=--=-=--=-=--=-=--=-=--=-=--=-=--=-")
+		local idk = self.damagelib ~= nil
+		print("X core loaded: " .. tostring(idk))
+
+		self.visualizer = visualizer:new(self.debug, self.helper, self.math, self.objects, self.damagelib)
+
 		cheat.on("features.pre_run", function()
 			self.target_selector:tick()
 		end)
@@ -2009,6 +2224,7 @@ local x = class({
 			self.permashow:draw()
 			self.debug:draw()
 			self.target_selector:draw()
+			self.visualizer:draw()
 		end)
 
 		cheat.on("features.run", function()
