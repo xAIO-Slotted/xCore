@@ -1,8 +1,9 @@
 # xCore
 How to use xCore
-
+```
 core = require("xCore")
 core:init()
+```
 
 :)
 
