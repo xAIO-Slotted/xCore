@@ -2104,9 +2104,7 @@ local visualizer = class({
 		local rdmg = 0
 		local aadmg = base_auto_dmg * self.visualizer_autos_slider:get_value()
 		-- if is
-		print("top of get dmg")
 		if self.objects:can_cast(e_spell_slot.q) then
-			print("test q")
 			qdmg = self.damagelib:calc_spell_dmg("Q", g_local, enemy, 1, self.objects:get_spell_level(e_spell_slot.q))
 		end
 		if self.objects:can_cast(e_spell_slot.w) then
