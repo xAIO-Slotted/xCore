@@ -1,4 +1,4 @@
-XCORE_VERSION = "1.0.9"
+XCORE_VERSION = "1.1.0"
 XCORE_LUA_NAME = "xCore.lua"
 XCORE_REPO_BASE_URL = "https://raw.githubusercontent.com/xAIO-Slotted/xCore/main/"
 XCORE_REPO_SCRIPT_PATH = XCORE_REPO_BASE_URL .. XCORE_LUA_NAME
@@ -468,10 +468,9 @@ local objects = class({
 		end
 		return false
 	  end,
-	get_spell_level = function (self, spell, unit)	
+	get_spell_level = function (self, slot, unit)	
 		unit = unit or g_local
-		local spell = unit:get_spell_book():get_spell_slot(spell)
-		local level = spell.Level or 0
+		local level =  unit:get_spell_book():get_spell_slot(slot).level or 0
 		return level
 	  end,
 	  
@@ -798,30 +797,30 @@ local damagelib = class({
 		if stage > 4 then stage = 4 end
 
 		if spell == "Q" or spell == "W" or spell == "E" or spell == "R" or spell == "QM" or spell == "WM" or spell == "EM" then
-			local level = level or
-				source:get_spell_book():get_spell_slot((
+			local level = level or source:get_spell_book():get_spell_slot((
 					{ ["Q"] = e_spell_slot.q, ["QM"] = e_spell_slot.q, ["W"] = e_spell_slot.w, ["WM"] = e_spell_slot.w,
 						["E"] = e_spell_slot.e, ["EM"] = e_spell_slot.e, ["R"] = e_spell_slot.r }
 				)[spell]).level
-
+			
 			if level <= 0 then return 0 end
 			if level > 5 then level = 5 end
 
-
-
+			
 			if self.database.DMG_LIST[source.champion_name.text:lower()] then
 				for _, spells in ipairs(self.database.DMG_LIST[source.champion_name.text:lower()]) do
 					if spells.slot == spell then
 						table.insert(cache, spells)
 					end
 				end
-
+				
 				if stage > #cache then stage = #cache end
-
+				
 				for v = #cache, 1, -1 do
 					local spells = cache[v]
 					if spells.stage == stage then
 						local dmg = spells.damage(self, source, target, level)
+
+
 						return self:calc_dmg(source, target, dmg)
 					end
 				end
@@ -1523,143 +1522,6 @@ local target_selector = class({
 
 })
 
---------------------------------------------------------------------------------
-
--- debug
-
---------------------------------------------------------------------------------
-
-local debug = class({
-	add = menu.get_main_window():push_navigation("debug", 10000),
-	nav = menu.get_main_window():find_navigation("debug"),
-
-	Colors = {
-		solid = {
-			white = color:new(255, 255, 255),
-			black = color:new(0, 0, 0),
-			gray = color:new(128, 128, 128),
-			lightGray = color:new(192, 192, 192),
-			darkGray = color:new(64, 64, 64),
-			red = color:new(255, 0, 0),
-			lightRed = color:new(255, 128, 128),
-			darkRed = color:new(128, 0, 0),
-			orange = color:new(255, 127, 0),
-			lightOrange = color:new(255, 180, 128),
-			darkOrange = color:new(191, 95, 0),
-			yellow = color:new(255, 255, 0),
-			lightYellow = color:new(255, 255, 128),
-			darkYellow = color:new(191, 191, 0),
-			green = color:new(0, 255, 0),
-			lightGreen = color:new(128, 255, 128),
-			darkGreen = color:new(0, 128, 0),
-			cyan = color:new(0, 255, 255),
-			lightCyan = color:new(128, 255, 255),
-			darkCyan = color:new(0, 128, 128),
-			blue = color:new(0, 0, 255),
-			lightBlue = color:new(128, 128, 255),
-			darkBlue = color:new(0, 0, 128),
-			purple = color:new(143, 0, 255),
-			lightPurple = color:new(191, 128, 255),
-			darkPurple = color:new(95, 0, 191)
-		},
-		transparent = {
-			white = color:new(255, 255, 255, 130),
-			black = color:new(0, 0, 0, 130),
-			gray = color:new(128, 128, 128, 130),
-			lightGray = color:new(192, 192, 192, 130),
-			darkGray = color:new(64, 64, 64, 130),
-			red = color:new(255, 0, 0, 200),
-			lightRed = color:new(255, 128, 128, 130),
-			darkRed = color:new(128, 0, 0, 130),
-			orange = color:new(255, 127, 0, 130),
-			lightOrange = color:new(255, 180, 128, 130),
-			darkOrange = color:new(191, 95, 0, 130),
-			yellow = color:new(255, 255, 0, 130),
-			lightYellow = color:new(255, 255, 128, 130),
-			darkYellow = color:new(191, 191, 0, 130),
-			green = color:new(0, 255, 0, 150),
-			lightGreen = color:new(128, 255, 128, 130),
-			darkGreen = color:new(0, 128, 0, 130),
-			cyan = color:new(0, 255, 255, 130),
-			lightCyan = color:new(128, 255, 255, 130),
-			darkCyan = color:new(0, 128, 128, 130),
-			blue = color:new(63, 72, 204, 200),
-			lightBlue = color:new(128, 128, 255, 130),
-			darkBlue = color:new(0, 0, 128, 130),
-			purple = color:new(143, 0, 255, 100),
-			lightPurple = color:new(191, 128, 255, 130),
-			darkPurple = color:new(95, 0, 191, 130)
-		}
-	},
-
-
-	init = function(self)
-		self.Last_dbg_msg_time = g_time
-		self.LastMsg = "init"
-		self.LastMsg1 = "init"
-		self.LastMsg2 = "init"
-
-		self.dbg_sec = self.nav:add_section("debug")
-		self.draw_sec = self.nav:add_section("color settings")
-		self.dbg_enable = self.dbg_sec:checkbox("enabled", g_config:add_bool(true, "dbg_enable"))
-
-		Res = g_render:get_screensize()
-		local dbg_lvl = 0
-		local posX = (Res.x / 2) - 100
-		local posY = Res.y - 260
-
-		self.Debug_level = g_config:add_int(dbg_lvl, "dbglvl")
-
-		self.x = g_config:add_int(posX, "ps_x")
-		self.y = g_config:add_int(posY, "ps_y")
-
-		g_config:add_int(dbg_lvl, "dbglvl")
-		self.dbg_sec:slider_int("Debuglvl", self.Debug_level, 0, 6)
-		g_config:add_int(posX, "ps_x")
-		self.dbg_sec:slider_int("x", self.x, 0, Res.x)
-		g_config:add_int(posY, "ps_y")
-		self.dbg_sec:slider_int("y", self.y, 0, Res.y)
-	end,
-
-	Print = function(self, str, level)
-		level = level or 1
-		str = tostring(str)
-
-		if level <= self.Debug_level:get_int() then
-			print("log: " .. " " .. str)
-			if str ~= self.LastMsg then
-				self.Last_dbg_msg_time = g_time
-				self.LastMsg2 = self.LastMsg1
-				self.LastMsg1 = self.LastMsg
-				self.LastMsg = str
-			end
-		end
-		if g_time == -1 then
-			self.Last_dbg_msg_time = g_time - 15
-			self.LastMsg2 = ""
-			self.LastMsg1 = ""
-			self.LastMsg1 = "bad g_time"
-		end
-	end,
-
-	draw = function(self)
-		local pos = vec2:new((Res.x / 2) - 100, Res.y - 260)
-		local pos1 = vec2:new((Res.x / 2) - 100, Res.y - 290)
-		local pos2 = vec2:new((Res.x / 2) - 100, Res.y - 320)
-		if self.Last_dbg_msg_time == -1 then
-			g_render:text(pos, self.Colors.solid.white, "bad g_time", font, 30)
-			return false
-		end                                                                                                                  -- skip bad time
-		if g_time - self.Last_dbg_msg_time >= 10 then return end                                                             -- fade out
-
-
-
-		g_render:text(pos, self.Colors.solid.white, self.LastMsg, font, 30)
-		g_render:text(pos1, self.Colors.solid.white, self.LastMsg1, font, 30)
-		g_render:text(pos2, self.Colors.solid.white, self.LastMsg2, font, 30)
-	end
-
-})
 
 --------------------------------------------------------------------------------
 
@@ -1919,12 +1781,12 @@ local permashow = class({
 --------------------------------------------------------------------------------
 local visualizer = class({
 	Last_cast_time = g_time,
-	debug = nil,
+	util = nil,
 	xHelper = nil,
 	math = nil,
 	objects = nil,
 	damagelib = nil,
-	add = menu.get_main_window():push_navigation("xDamageVisuals", 10000),
+	add = menu.get_main_window():push_navigation("xVisuals", 10000),
 	visualizer_split_colors = nil,
 	visualizer_show_combined_bars = nil,
 	visualizer_show_stacked_bars = nil,
@@ -1936,11 +1798,12 @@ local visualizer = class({
 	visualizer_visualize_r = nil,
 	visualizer_show_text = nil,
 
-	init = function(self, debug, xHelper, math, objects, damagelib)
+
+	init = function(self, util, xHelper, math, objects, damagelib)
 		self.Last_cast_time = g_time
 		self.xHelper = xHelper
 		self.math = math
-		self.debug = debug
+		self.util = util
 		self.damagelib = damagelib
 
 		if self.damagelib == nil then
@@ -1948,7 +1811,7 @@ local visualizer = class({
 		end
 		self.objects = objects
 		-- Menus
-		self.nav = menu.get_main_window():find_navigation("xDamageVisuals")
+		self.nav = menu.get_main_window():find_navigation("xVisuals")
 		self.vis_sect = self.nav:add_section("visualizer")
 		self.checkboxVisualDmg = self.vis_sect:checkbox("damage visual", g_config:add_bool(true, "visualize damage"))
 		self.visualizer_split_colors = self.vis_sect:checkbox("^ Split colors", g_config:add_bool(true, "split_colors"))
@@ -1965,46 +1828,7 @@ local visualizer = class({
 		self.visualizer_visualize_r = self.vis_sect:checkbox("Visualize R", g_config:add_bool(true, "visualize_r"))
 		self.visualizer_show_text = self.vis_sect:checkbox("Show text", g_config:add_bool(true, "visualizer_show_text"))
 	end,
-	get_visualizer_split_colors_status = function(self)
-		return self.visualizer_split_colors:get_value()
-	end,
-
-	get_visualizer_show_combined_bars_status = function(self)
-		return self.visualizer_show_combined_bars:get_value()
-	end,
-
-	get_visualizer_show_stacked_bars_status = function(self)
-		return self.visualizer_show_stacked_bars:get_value()
-	end,
-
-	get_visualizer_visualize_autos_status = function(self)
-		return self.visualizer_visualize_autos:get_value()
-	end,
-
-	get_visualizer_autos_slider_status = function(self)
-		return self.visualizer_autos_slider:get_value()
-	end,
-
-	get_visualizer_visualize_q_status = function(self)
-		return self.visualizer_visualize_q:get_value()
-	end,
-
-	get_visualizer_visualize_w_status = function(self)
-		return self.visualizer_visualize_w:get_value()
-	end,
-
-	get_visualizer_visualize_e_status = function(self)
-		return self.visualizer_visualize_e:get_value()
-	end,
-
-	get_visualizer_visualize_r_status = function(self)
-		return self.visualizer_visualize_r:get_value()
-	end,
-
-	get_visualizer_show_text_status = function(self)
-		return self.visualizer_show_text:get_value()
-	end,
-	render_damage_bar = function(self, enemy, combodmg, aadmg, wdmg, rdmg, bar_height, yOffset)
+    render_damage_bar = function(self, enemy, combodmg, aadmg, qdmg, wdmg, edmg, rdmg, bar_height, yOffset)
 		yOffset = yOffset or 0
 		local screen = g_render:get_screensize()
 		local width_offset = 0.055
@@ -2036,133 +1860,176 @@ local visualizer = class({
 
 		local remaining_health = enemy.health / enemy.max_health
 		if combodmg > 0 then
-			remaining_health = DrawDamageSection(self.debug.Colors.transparent.purple, combodmg, remaining_health)
+			remaining_health = DrawDamageSection(self.util.Colors.transparent.purple, combodmg, remaining_health)
 		end
 		if aadmg > 0 then
-			remaining_health = DrawDamageSection(self.debug.Colors.transparent.green, aadmg, remaining_health)
+			remaining_health = DrawDamageSection(self.util.Colors.transparent.green, aadmg, remaining_health)
 		end
+		if qdmg > 0 then
+            remaining_health = DrawDamageSection(self.util.Colors.transparent.lightMagenta, qdmg, remaining_health)
+        end
 		if wdmg > 0 then
-			remaining_health = DrawDamageSection(self.debug.Colors.transparent.blue, wdmg, remaining_health)
+			remaining_health = DrawDamageSection(self.util.Colors.transparent.blue, wdmg, remaining_health)
 		end
+		if edmg > 0 then
+            remaining_health = DrawDamageSection(self.util.Colors.transparent.orange, edmg, remaining_health)
+        end
 		if rdmg > 0 then
-			remaining_health = DrawDamageSection(self.debug.Colors.transparent.red, rdmg, remaining_health)
+			remaining_health = DrawDamageSection(self.util.Colors.transparent.red, rdmg, remaining_health)
 		end
-	end,
-	render_stacked_bars = function(self, enemy, aadmg, wdmg, rdmg)
+	end,render_stacked_bars = function(self, enemy, aadmg, qdmg, wdmg, edmg, rdmg)
 		local screen = g_render:get_screensize()
 		local height_offset = 0.010
 		local bar_height = (screen.y * height_offset)
-
-
-		local combined_aadmg = aadmg
-		if self.visualizer_visualize_autos:get_value() then
-			self:render_damage_bar(enemy, 0, aadmg, 0, 0, bar_height, 0)
-		end
-
+		local last_offset_top = -15
+		local last_offset_bottom = 15
+	
 		if self.visualizer_visualize_w:get_value() then
-			self:render_damage_bar(enemy, 0, 0, wdmg, 0, bar_height, -15)
-			combined_aadmg = combined_aadmg + wdmg
+			self:render_damage_bar(enemy, 0, 0, 0, wdmg, 0, 0, bar_height, last_offset_top)
+			last_offset_top = last_offset_top - 15
+		end
+		if self.visualizer_visualize_q:get_value() then
+			self:render_damage_bar(enemy, 0, 0, qdmg, 0, 0, 0, bar_height, last_offset_top)
+			last_offset_top = last_offset_top - 15
+		end
+		if self.visualizer_visualize_autos:get_value() then
+			self:render_damage_bar(enemy, 0, aadmg, 0, 0, 0, 0, bar_height, 0)
+		end
+		if self.visualizer_visualize_e:get_value() then
+			self:render_damage_bar(enemy, 0, 0, 0, 0, edmg, 0, bar_height, last_offset_bottom)
+			last_offset_bottom = last_offset_bottom + 15
+
+		end
+		if self.visualizer_visualize_r:get_value() then
+			self:render_damage_bar(enemy, 0, 0, 0, 0, 0, rdmg, bar_height, last_offset_bottom)
+			last_offset_bottom = last_offset_bottom + 15
 		end
 
-		if self.visualizer_visualize_r:get_value() then
-			self:render_damage_bar(enemy, 0, 0, 0, rdmg, bar_height, 15)
-			combined_aadmg = combined_aadmg + rdmg
-		end
 	end,
-	render_combined_bars = function(self, enemy, aadmg, wdmg, rdmg)
+	
+	render_combined_bars = function(self, enemy, aadmg, qdmg, wdmg, edmg, rdmg)
 		local screen = g_render:get_screensize()
 		local height_offset = 0.010
 		local bar_height = (screen.y * height_offset)
-
-		-- if any of the jmenu visualizers are off i want to set the dmg to 0 so it doesnt render on the combined bar
 		if not self.visualizer_visualize_autos:get_value() then
 			aadmg = 0
+		end
+		if not self.visualizer_visualize_q:get_value() then
+			qdmg = 0
 		end
 		if not self.visualizer_visualize_w:get_value() then
 			wdmg = 0
 		end
+		if not self.visualizer_visualize_e:get_value() then
+			edmg = 0
+		end
 		if not self.visualizer_visualize_r:get_value() then
 			rdmg = 0
 		end
-		local combodmg = aadmg + wdmg + rdmg
-
+		local combodmg = aadmg + qdmg + wdmg + edmg + rdmg
+	
+		
 		if self.visualizer_split_colors:get_value() then
-			self:render_damage_bar(enemy, 0, aadmg, wdmg, rdmg, bar_height, 0)
+			self:render_damage_bar(enemy, 0, aadmg, qdmg, wdmg, edmg, rdmg, bar_height, 0)
 		else
-			self:render_damage_bar(enemy, combodmg, 0, 0, 0, bar_height, 0)
+			self:render_damage_bar(enemy, combodmg, aadmg, qdmg, wdmg, edmg, rdmg, bar_height, 0)
 		end
 	end,
-	display_killable_text = function (self, enemy, nmehp, aadmg, wdmg, rdmg)
-		
+	display_killable_text = function (self, enemy, nmehp, aadmg, qdmg, wdmg, edmg, rdmg)
 		local pos = enemy.position
 		if pos:to_screen() ~= nil then
 			local spells_text = ""
 			local killable_text = ""
-
+	
 			local autos_to_kill = std_math.ceil(nmehp / aadmg)
 			if nmehp <= aadmg then
-			killable_text = "AA Kill"
+				killable_text = "AA Kill"
+			elseif nmehp <= qdmg then
+				killable_text = "Q Kill"
 			elseif nmehp <= wdmg then
-			killable_text = "W Kill"
-			elseif nmehp <= rdmg + wdmg then
-			killable_text = "Combo Kill"
-			if self.visualizer_visualize_w:get_value() then
-				spells_text = "W"
-			end
-			if self.visualizer_visualize_r:get_value() then
-				spells_text = spells_text .. (spells_text ~= "" and " + " or "") .. "R"
-			end
+				killable_text = "W Kill"
+			elseif nmehp <= edmg then
+				killable_text = "E Kill"
+			elseif nmehp <= rdmg then
+				killable_text = "R Kill"
+			elseif nmehp <= qdmg + wdmg + edmg + rdmg then
+				killable_text = "Combo Kill"
+				if self.visualizer_visualize_q:get_value() then
+					spells_text = "Q"
+				end
+				if self.visualizer_visualize_w:get_value() then
+					spells_text = spells_text .. (spells_text ~= "" and " + " or "") .. "W"
+				end
+				if self.visualizer_visualize_e:get_value() then
+					spells_text = spells_text .. (spells_text ~= "" and " + " or "") .. "E"
+				end
+				if self.visualizer_visualize_r:get_value() then
+					spells_text = spells_text .. (spells_text ~= "" and " + " or "") .. "R"
+				end
 			else
-			if self.objects:can_cast(e_spell_slot.w) and self.visualizer_visualize_w:get_value() then
-				autos_to_kill = std_math.ceil((nmehp - wdmg) / aadmg)
-				spells_text = "W"
-			end
-			if self.objects:can_cast(e_spell_slot.r) and self.visualizer_visualize_r:get_value() then
-				autos_to_kill = std_math.ceil((nmehp - rdmg) / aadmg)
-				spells_text = (spells_text ~= "" and " + " or "") .. "R"
-			end
-			if self.objects:can_cast(e_spell_slot.w) and self.objects:can_cast(e_spell_slot.r) and self.visualizer_visualize_w:get_value() and self.visualizer_visualize_r:get_value() then
-				autos_to_kill = std_math.ceil((nmehp - wdmg - rdmg) / aadmg)
-				spells_text = "W + R"
-			end
-			killable_text = spells_text .. (spells_text ~= "" and " + " or "") .. tostring(autos_to_kill) .. " AA to kill"
+				if self.objects:can_cast(e_spell_slot.q) and self.visualizer_visualize_q:get_value() then
+					autos_to_kill = std_math.ceil((nmehp - qdmg) / aadmg)
+					spells_text = "Q"
+				end
+				if self.objects:can_cast(e_spell_slot.w) and self.visualizer_visualize_w:get_value() then
+					autos_to_kill = std_math.ceil((nmehp - wdmg) / aadmg)
+					spells_text = (spells_text ~= "" and " + " or "") .. "W"
+				end
+				if self.objects:can_cast(e_spell_slot.e) and self.visualizer_visualize_e:get_value() then
+					autos_to_kill = std_math.ceil((nmehp - edmg) / aadmg)
+					spells_text = (spells_text ~= "" and " + " or "") .. "E"
+				end
+				if self.objects:can_cast(e_spell_slot.r) and self.visualizer_visualize_r:get_value() then
+					autos_to_kill = std_math.ceil((nmehp - rdmg) / aadmg)
+					spells_text = (spells_text ~= "" and " + " or "") .. "R"
+				end
+				killable_text = spells_text .. (spells_text ~= "" and " + " or "") .. tostring(autos_to_kill) .. " AA to kill"
 			end
 			if killable_text ~= "" then
-			local killable_pos = vec2:new(pos:to_screen().x, pos:to_screen().y - 80)
-			g_render:text(killable_pos, color:new(255, 255, 255), killable_text, Font, 30)
+				killable_text = killable_text:gsub("^%s*+", "")
+				local killable_pos = vec2:new(pos:to_screen().x, pos:to_screen().y - 80)
+				g_render:text(killable_pos, color:new(255, 255, 255), killable_text, Font, 30)
 			end
 		end
 	end,
 	get_damage_array= function (self, enemy)
 		local base_auto_dmg = self.damagelib:calc_aa_dmg(g_local, enemy)
 		local aadmg = 0
+		local qdmg = 0
 		local wdmg = 0
+        local edmg = 0
 		local rdmg = 0
 		local aadmg = base_auto_dmg * self.visualizer_autos_slider:get_value()
 		-- if is
+		if self.objects:can_cast(e_spell_slot.q) then
+            qdmg = self.damagelib:calc_spell_dmg("Q", g_local, enemy, 1, self.objects:get_spell_level(e_spell_slot.q))
+        end
 		if self.objects:can_cast(e_spell_slot.w) then
-		  wdmg = self.damagelib:calc_spell_dmg(e_spell_slot.w, g_local, enemy, 1, self.objects:get_spell_level(e_spell_slot.w))
+		 	 wdmg = self.damagelib:calc_spell_dmg("W", g_local, enemy, 1, self.objects:get_spell_level(e_spell_slot.w))
+		end
+		if self.objects:can_cast(e_spell_slot.e) then
+		 	 edmg = self.damagelib:calc_spell_dmg("E", g_local, enemy, 1, self.objects:get_spell_level(e_spell_slot.e))
 		end
 		if self.objects:can_cast(e_spell_slot.r) then
-		  rdmg = self.damagelib:calc_spell_dmg(e_spell_slot.r, g_local, enemy, 1, self.objects:get_spell_level(e_spell_slot.r))
+		  rdmg = self.damagelib:calc_spell_dmg("R", g_local, enemy, 1, self.objects:get_spell_level(e_spell_slot.r))
 		end
-		return aadmg, wdmg, rdmg
+		return aadmg, qdmg, wdmg, edmg, rdmg
 	  end,
 	  Visualize_damage = function (self, enemy)
 		local nmehp = enemy.health
-		local aadmg, wdmg, rdmg = self:get_damage_array(enemy)
+		local aadmg, qdmg, wdmg, edmg, rdmg = self:get_damage_array(enemy)
 
 		-- combined bars
 		if self.visualizer_show_combined_bars:get_value() then
-			self:render_combined_bars(enemy,  aadmg, wdmg, rdmg)
+			self:render_combined_bars(enemy, aadmg, qdmg, wdmg, edmg, rdmg)
 		end
 	-- stacked bars
 		if self.visualizer_show_stacked_bars:get_value() then
-			self:render_stacked_bars(enemy, aadmg, wdmg, rdmg)
+			self:render_stacked_bars(enemy, aadmg, qdmg, wdmg, edmg, rdmg)
 		end
   -- killable text
 		if self.visualizer_show_text:get_value() then
-			self:display_killable_text(enemy, nmehp, self.damagelib:calc_aa_dmg(g_local, enemy), wdmg, rdmg)
+			self:display_killable_text(enemy, nmehp, self.damagelib:calc_aa_dmg(g_local, enemy), qdmg, wdmg, edmg, rdmg)
 		end
 	end,
 	draw = function(self)
@@ -2172,20 +2039,93 @@ local visualizer = class({
 		  end
 		end
 	end,
-	tick = function(self)
-
-		-- Implementation goes here
-	end,
-
 	register = function(self, identifier, name, key, is_toggle, cfg)
 		-- Implementation goes here
 	end,
-
-	update = function(self, identifier, options)
-		-- Implementation goes here
-	end,
 })
-  
+
+--------------------------------------------------------------------------------
+
+-- debug
+
+--------------------------------------------------------------------------------
+
+local debug = class({
+	add = menu.get_main_window():push_navigation("xVisuals", 10000),
+	nav = menu.get_main_window():find_navigation("xVisuals"),
+	util = nil,
+	Colors = nil,
+
+
+	init = function(self, util)
+		self.util = util
+		self.Colors = util.Colors
+		self.Last_dbg_msg_time = g_time
+		self.LastMsg = "init"
+		self.LastMsg1 = "init"
+		self.LastMsg2 = "init"
+
+		self.dbg_sec = self.nav:add_section("debug")
+		self.draw_sec = self.nav:add_section("color settings")
+		self.dbg_enable = self.dbg_sec:checkbox("enabled", g_config:add_bool(true, "dbg_enable"))
+
+		Res = g_render:get_screensize()
+		local dbg_lvl = 0
+		local posX = (Res.x / 2) - 100
+		local posY = Res.y - 260
+
+		self.Debug_level = g_config:add_int(dbg_lvl, "dbglvl")
+
+		self.x = g_config:add_int(posX, "ps_x")
+		self.y = g_config:add_int(posY, "ps_y")
+
+		g_config:add_int(dbg_lvl, "dbglvl")
+		self.dbg_sec:slider_int("Debuglvl", self.Debug_level, 0, 6)
+		g_config:add_int(posX, "ps_x")
+		self.dbg_sec:slider_int("x", self.x, 0, Res.x)
+		g_config:add_int(posY, "ps_y")
+		self.dbg_sec:slider_int("y", self.y, 0, Res.y)
+	end,
+
+	Print = function(self, str, level)
+		level = level or 1
+		str = tostring(str)
+
+		if level <= self.Debug_level:get_int() then
+			print("log: " .. " " .. str)
+			if str ~= self.LastMsg then
+				self.Last_dbg_msg_time = g_time
+				self.LastMsg2 = self.LastMsg1
+				self.LastMsg1 = self.LastMsg
+				self.LastMsg = str
+			end
+		end
+		if g_time == -1 then
+			self.Last_dbg_msg_time = g_time - 15
+			self.LastMsg2 = ""
+			self.LastMsg1 = ""
+			self.LastMsg1 = "bad g_time"
+		end
+	end,
+
+	draw = function(self)
+		local pos = vec2:new((Res.x / 2) - 100, Res.y - 260)
+		local pos1 = vec2:new((Res.x / 2) - 100, Res.y - 290)
+		local pos2 = vec2:new((Res.x / 2) - 100, Res.y - 320)
+		if self.Last_dbg_msg_time == -1 then
+			g_render:text(pos, self.Colors.solid.white, "bad g_time", font, 30)
+			return false
+		end                                                                                                                  -- skip bad time
+		if g_time - self.Last_dbg_msg_time >= 10 then return end                                                             -- fade out
+
+
+
+		g_render:text(pos, self.Colors.solid.white, self.LastMsg, font, 30)
+		g_render:text(pos1, self.Colors.solid.white, self.LastMsg1, font, 30)
+		g_render:text(pos2, self.Colors.solid.white, self.LastMsg2, font, 30)
+	end
+
+})
 
 
 --------------------------------------------------------------------------------
@@ -2196,15 +2136,16 @@ local visualizer = class({
 
 local x = class({
 	VERSION = "1.0",
+	util = util:new(),
 	permashow = permashow:new(),
 	buffcache = buffcache:new(),
 	helper = xHelper:new(buffcache),
 	math = math:new(xHelper, buffcache),
 	objects = objects:new(xHelper, math),
-	debug = debug:new(),
 	database = database:new(xHelper),
 	damagelib = damagelib:new(xHelper, math, database, buffcache),
-	util = util:new(),
+	visualizer = visualizer:new(util, xHelper, math, objects, damagelib),
+	debug = debug:new(util),
 	target_selector = target_selector:new(xHelper, math, objects, damagelib),
 	vec2_util = vec2Util,
 	vec3_util = vec3Util,
@@ -2214,7 +2155,6 @@ local x = class({
 		local idk = self.damagelib ~= nil
 		print("X core loaded: " .. tostring(idk))
 
-		self.visualizer = visualizer:new(self.debug, self.helper, self.math, self.objects, self.damagelib)
 
 		cheat.on("features.pre_run", function()
 			self.target_selector:tick()
