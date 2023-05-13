@@ -10,13 +10,19 @@ core:init()
 # thanks, how do i get the permashow?
 two ways
 first give youself a title
-```core.permashow:set_title("put a name here")``
+```
+core.permashow:set_title("put a name here")
+```
 then register what you want to show up on the perma show
 This method ties the hotkey to a menu config so that it's tracked as a toggle
-```core.permashow:register("farm", "farm", "A", true, menu.q_clear_aoe_cgf)```
+```
+core.permashow:register("farm", "farm", "A", true, menu.q_clear_aoe_cgf)
+```
 
 or this way the permashow just displays if the key is pressed or not (then you should activate the logic yourself somewhere)
-```core.permashow:register("Semi-Auto Ult", "Semi-Auto Ult", "U")```
+```
+core.permashow:register("Semi-Auto Ult", "Semi-Auto Ult", "U")
+```
 
 heres my jinx example
 ```
@@ -32,7 +38,7 @@ core.permashow:register("Extend AA To Harass", "Extend AA To Harass", "I", true,
 
 right so all that is handle through core.database.DMG_LIST so we need to get your data in there, either you can make a PR and we'll approve it right quick OR
 we did set up a method to add it yourself
-
+```core.database:add_champion_data```
 Here is how you would add sion
 
 ```
