@@ -867,8 +867,9 @@ local damagelib = class({
 			if level <= 0 then return 0 end
 			if level > 5 then level = 5 end
 
-
+			
 			if self.database.DMG_LIST[source.champion_name.text:lower()] then
+				
 				for _, spells in ipairs(self.database.DMG_LIST[source.champion_name.text:lower()]) do
 					if spells.slot == spell then
 						table.insert(cache, spells)
@@ -886,7 +887,10 @@ local damagelib = class({
 						return self:calc_dmg(source, target, dmg)
 					end
 				end
+			else
+				return 0
 			end
+
 		end
 
 		if spell == "AA" then
@@ -1089,15 +1093,13 @@ local database = class({
 				end
 			},
 		},
-
 		sion = { -- 13.6
 			{
 				slot = "Q",
 				stage = 1,
 				damage_type = 1,
 				damage = function(self, source, target, level)
-					return ({ 40, 60, 80, 100, 120 })[level] +
-						({ 45, 52, 60, 67, 75 })[level] / 100 * source:get_attack_damage()
+					return 0
 				end
 			},
 			{
@@ -1105,8 +1107,7 @@ local database = class({
 				stage = 1,
 				damage_type = 2,
 				damage = function(self, source, target, level)
-					return ({ 40, 65, 90, 115, 140 })[level] + 0.4 * source:get_ability_power() +
-						({ 10, 11, 12, 13, 14 })[level] / 100 * target.max_health
+					return 0
 				end
 			},
 			{
@@ -1114,8 +1115,7 @@ local database = class({
 				stage = 1,
 				damage_type = 2,
 				damage = function(self, source, target, level)
-					return ({ 65, 100, 135, 170, 205 })[level] +
-						0.55 * source:get_ability_power()
+					return 0
 				end
 			},
 			{
@@ -1123,13 +1123,24 @@ local database = class({
 				stage = 1,
 				damage_type = 1,
 				damage = function(self, source, target, level)
-					return ({ 150, 300, 450 })[level] +
-						0.4 * source:get_bonus_attack_damage()
+					return 0
 				end
 			},
 		},
 	},
-
+	add_champion_data = function(self, new_dmg_data)
+		for champ_name, dmg_data in pairs(new_dmg_data) do
+			print(champ_name)
+			print(dmg_data)
+			if self.DMG_LIST[champ_name] then
+				for _, new_dmg_entry in ipairs(dmg_data) do
+					table.insert(self.DMG_LIST[champ_name], new_dmg_entry)
+				end
+			else
+				self.DMG_LIST[champ_name] = dmg_data
+			end
+		end
+	end,
 	has_dash = function(self, unit)
 		if self.DASH_LIST[unit.champion_name.text] == nil then return false end
 		return true
@@ -2084,6 +2095,7 @@ local visualizer = class({
 		end
 	end,
 	get_damage_array = function(self, enemy)
+		
 		local base_auto_dmg = self.damagelib:calc_aa_dmg(g_local, enemy)
 		local aadmg = 0
 		local qdmg = 0
@@ -2092,7 +2104,9 @@ local visualizer = class({
 		local rdmg = 0
 		local aadmg = base_auto_dmg * self.visualizer_autos_slider:get_value()
 		-- if is
+		print("top of get dmg")
 		if self.objects:can_cast(e_spell_slot.q) then
+			print("test q")
 			qdmg = self.damagelib:calc_spell_dmg("Q", g_local, enemy, 1, self.objects:get_spell_level(e_spell_slot.q))
 		end
 		if self.objects:can_cast(e_spell_slot.w) then
@@ -2165,6 +2179,7 @@ local visualizer = class({
 	end,
 	draw = function(self)
 		if self.checkboxVisualDmg:get_value() then
+			
 			for i, enemy in pairs(features.entity_list:get_enemies()) do
 				if enemy and self.xHelper:is_alive(enemy) and enemy:is_visible() and g_local.position:dist_to(enemy.position) < 3000 then
 					self:Visualize_damage(enemy)
