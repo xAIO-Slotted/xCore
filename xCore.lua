@@ -338,6 +338,51 @@ local util = class({
 			darkMagenta = color:new(128, 0, 128, 130),
 		}
 	},
+	rift_location = {
+		["Blue_Base"] = {x = 1184, y = 95, z = 1176},
+		["Red_Base"] = {x = 13500, y = 91, z = 13592},
+		["Red_Recall"] = {x = 14312, y = 171, z = 14348},
+		["Blue_Recall"] = {x = 420, y = 183, z = 410},
+		["Blue_Bot_Tier_1"] = {x = 10452, y = 50, z = 1328},
+		["Blue_Bot_Tier_2"] = {x = 7024, y = 49, z = 1282},
+		["Blue_Bot_Tier_3"] = {x = 3868, y = 95, z = 880},
+		["Red_Bot_Tier_1"] = {x = 13732, y = 91, z = 10426},
+		["Red_Bot_Tier_2"] = {x = 13550, y = 52, z = 7848},
+		["Red_Bot_Tier_3"] = {x = 13670, y = 52, z = 4282},
+		["Blue_Mid_Tier_1"] = {x = 5974, y = 51, z = 6054},
+		["Blue_Mid_Tier_2"] = {x = 5048, y = 50, z = 4606},
+		["Blue_Mid_Tier_3"] = {x = 3880, y = 95, z = 3676},
+		["Red_Mid_Tier_1"] = {x = 11218, y = 91, z = 10952},
+		["Red_Mid_Tier_2"] = {x = 9810, y = 51, z = 9818},
+		["Red_Mid_Tier_3"] = {x = 8814, y = 53, z = 8362},
+		["Blue_Top_Tier_1"] = {x = 1130, y = 52, z = 10368},
+		["Blue_Top_Tier_2"] = {x = 1164, y = 52, z = 6726},
+		["Blue_Top_Tier_3"] = {x = 10022, y = -72, z = 4614},
+		["Red_Top_Tier_1"] = {x = 4434, y = -67, z = 9660},
+		["Red_Top_Tier_2"] = {x = 7600, y = 52, z = 13559},
+		["Red_Top_Tier_3"] =  {x = 10734, y = 91, z = 13464},
+		["Dragon"] = {x = 10226, y = -72, z = 4712},
+		["Baron"] = {x = 5014, y = -72, z = 10096},
+		["Blue_Red_Buff"] = {x = 7354, y = 51, z = 3792},
+		["Blue_Blue_Buff"] = {x = 3804, y = 51, z = 7692},
+		["Red_Red_Buff"] = {x = 7442, y = 56, z = 10978},
+		["Red_Blue_Buff"] = {x = 11228, y = 51, z = 6624},
+		["Blue_Gromp"] = {x = 2434, y = 51, z = 8272},
+		["Blue_Wolves"] = {x = 3658, y = 52, z = 6174},
+		["Blue_Raptors"] =  {x = 7102, y = 48, z = 4942},
+		["Blue_Krugs"] = {x = 8176, y = 51, z = 2392},
+		["Red_Gromp"] = {x = 12300, y = 52, z = 6360},
+		["Red_Wolves"] = {x = 11206, y = 58, z = 8438},
+		["Red_Raptors"] = {x = 7618, y = 51, z = 9872},
+		["Red_Krugs"] = {x = 6496, y = 56, z = 12336},
+		["Bot_Tri_Bush"] = {x = 10414, y = 50, z = 3048},
+		["Top_Tri_Bush"] = {x = 4444, y = 56, z = 11736},
+		["Top_River_Bush"] = {x = 2954, y = -73, z = 10888},
+		["Bot_River_Bush"] = {x = 11838, y = -68, z = 3792},
+		["Mid_Lane"] = {x = 7352, y = 54, z = 7202},
+		["Bot_Lane"] = {x = 12492, y = 51, z = 2306},
+		["Top_Lane"] = {x = 2161, y = 52, z = 12369},
+	},
 
 	init = function(self)
 		self.screen = g_render:get_screensize()
@@ -348,8 +393,24 @@ local util = class({
 	textAt = function(self, pos, color, text)
 		g_render:text(pos, color, text, self.font, self.fontSize)
 	end,
+	
 
-
+	GetClosestRiftLocation = function(x, y, z)
+		-- Prints("My hero position: x=" .. tostring(g_local.position.x) .. ", y=" .. tostring(g_local.position.y) .. ", z=" .. tostring(g_local.position.z))
+		
+		local closestLocation = ""
+		local shortestDistance = std_math.huge
+		
+		for location, coords in pairs(self.rift_location) do
+			local distance = std_math.sqrt((coords.x - x)^2 + (coords.y - y)^2 + (coords.z - z)^2)
+			if distance < shortestDistance then
+				closestLocation = location
+				shortestDistance = distance
+			end
+		end
+		 
+		return closestLocation,std_math.floor(shortestDistance)
+	end,
 })
 
 --------------------------------------------------------------------------------
@@ -424,13 +485,38 @@ local objects = class({
 	xHelper = nil,
 	math = nil,
 	database = nil,
+	util = nil,
 
-	init = function(self, xHelper, math, database)
+	init = function(self, xHelper, math, database, util)
 		self.xHelper = xHelper
 		self.math = math
 		self.database = database
 	end,
+	
+	get_team_color = function(unit)
+		unit = unit or g_local
+		local team = unit.team
 
+		if team == 200 then
+			return 200, "red"
+		elseif team == 100 then
+			return 100, "blue"
+		else
+			return 0, nil
+		end
+	end,
+	get_baseult_pos = function(self, unit)
+		if not unit then return nil end
+		local team, color = self:get_team_color(unit)
+		local baseult = nil
+		if color == "red" then
+			baseult = self.util.rift_location["Red_Recall"]
+		elseif color == "blue" then
+			baseult = self.util.rift_location["Blue_Recall"]
+		end
+		local baseult_pos = vec3:new(baseult.x, baseult.y, baseult.z)
+		return baseult_pos
+	end,
 	get_bounding_radius = function(self, unit)
 		return unit:get_bounding_radius() or 45
 	end,
@@ -2292,7 +2378,7 @@ local x = class({
 	helper = xHelper:new(buffcache),
 	math = math:new(xHelper, buffcache),
 	database = database:new(xHelper),
-	objects = objects:new(xHelper, math, database),
+	objects = objects:new(xHelper, math, database, util),
 	damagelib = damagelib:new(xHelper, math, database, buffcache),
 	visualizer = visualizer:new(util, xHelper, math, objects, damagelib),
 	debug = debug:new(util),
