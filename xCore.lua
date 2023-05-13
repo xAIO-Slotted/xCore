@@ -1,4 +1,4 @@
-XCORE_VERSION = "1.1.0"
+XCORE_VERSION = "1.1.1"
 XCORE_LUA_NAME = "xCore.lua"
 XCORE_REPO_BASE_URL = "https://raw.githubusercontent.com/xAIO-Slotted/xCore/main/"
 XCORE_REPO_SCRIPT_PATH = XCORE_REPO_BASE_URL .. XCORE_LUA_NAME
@@ -127,16 +127,15 @@ end
 --- @field drawLine fun(self:vec3Util, origin:Vec3, destination:Vec3, color:Color):nil
 --- @field drawBox fun(self:vec3Util, start_pos:Vec3, end_pos:Vec3, width:number, color:Color, thickness:number):nil
 local vec3Util = class({
-
 	print = function(self, point)
 		print("x: " .. point.x .. " y: " .. point.y .. " z: " .. point.z)
 	end,
 
 	rotate = function(self, origin, point, angle)
-		local angle = angle * (math.pi/180)
+		local angle = angle * (math.pi / 180)
 		local rotatedX = math.cos(angle) * (point.x - origin.x) - math.sin(angle) * (point.z - origin.z) + origin.x
 		local rotatedZ = math.sin(angle) * (point.x - origin.x) + math.cos(angle) * (point.z - origin.z) + origin.z
-		return vec3:new(rotatedX, point.y ,rotatedZ)
+		return vec3:new(rotatedX, point.y, rotatedZ)
 	end,
 
 	translate = function(self, origin, offsetX, offsetZ)
@@ -168,28 +167,28 @@ local vec3Util = class({
 	end,
 
 	drawBox = function(self, start_pos, end_pos, width, color, thickness)
-		  -- Calculate the direction vector
-		  local dir = vec3:new(end_pos.x - start_pos.x, 0, end_pos.z - start_pos.z)
-		  dir = dir:normalized()
-		
-		  -- Calculate the half width vector
-		  local half_width_vec = vec3:new(-dir.z * (width), 0, dir.x * (width))
-		  
-		  -- Calculate the corner points of the box
-		  local p1 = vec3:new(start_pos.x + half_width_vec.x, start_pos.y, start_pos.z + half_width_vec.z)
-		  local p2 = vec3:new(start_pos.x - half_width_vec.x, start_pos.y, start_pos.z - half_width_vec.z)
-		  local p3 = vec3:new(end_pos.x + half_width_vec.x, end_pos.y, end_pos.z + half_width_vec.z)
-		  local p4 = vec3:new(end_pos.x - half_width_vec.x, end_pos.y, end_pos.z - half_width_vec.z)
-		
-		  -- Draw lines connecting the corner points
-		  g_render:line_3d(p1, p2, color, thickness)
-		  g_render:line_3d(p1, p3, color, thickness)
-		  g_render:line_3d(p2, p4, color, thickness)
-		  g_render:line_3d(p3, p4, color, thickness)
-		  
-		  -- Draw lines connecting start and end points (vertical edges)
-		  g_render:line_3d(p1, p3, color, thickness)
-		  g_render:line_3d(p2, p4, color, thickness)
+		-- Calculate the direction vector
+		local dir = vec3:new(end_pos.x - start_pos.x, 0, end_pos.z - start_pos.z)
+		dir = dir:normalized()
+
+		-- Calculate the half width vector
+		local half_width_vec = vec3:new(-dir.z * (width), 0, dir.x * (width))
+
+		-- Calculate the corner points of the box
+		local p1 = vec3:new(start_pos.x + half_width_vec.x, start_pos.y, start_pos.z + half_width_vec.z)
+		local p2 = vec3:new(start_pos.x - half_width_vec.x, start_pos.y, start_pos.z - half_width_vec.z)
+		local p3 = vec3:new(end_pos.x + half_width_vec.x, end_pos.y, end_pos.z + half_width_vec.z)
+		local p4 = vec3:new(end_pos.x - half_width_vec.x, end_pos.y, end_pos.z - half_width_vec.z)
+
+		-- Draw lines connecting the corner points
+		g_render:line_3d(p1, p2, color, thickness)
+		g_render:line_3d(p1, p3, color, thickness)
+		g_render:line_3d(p2, p4, color, thickness)
+		g_render:line_3d(p3, p4, color, thickness)
+
+		-- Draw lines connecting start and end points (vertical edges)
+		g_render:line_3d(p1, p3, color, thickness)
+		g_render:line_3d(p2, p4, color, thickness)
 	end,
 })
 
@@ -214,7 +213,7 @@ local vec2Util = class({
 	end,
 
 	rotate = function(self, origin, point, angle)
-		local angle = angle * (math.pi/180)
+		local angle = angle * (math.pi / 180)
 		local rotatedX = math.cos(angle) * (point.x - origin.x) - math.sin(angle) * (point.y - origin.y) + origin.x
 		local rotatedY = math.sin(angle) * (point.x - origin.x) + math.cos(angle) * (point.y - origin.y) + origin.y
 		return vec3:new(rotatedX, rotatedY)
@@ -223,17 +222,17 @@ local vec2Util = class({
 	translate = function(self, origin, offsetX, offsetY)
 		local translatedX = origin.x + offsetX
 		local translatedY = origin.y + offsetY
-		return vec2:new(translatedX,  translatedY)
+		return vec2:new(translatedX, translatedY)
 	end,
 
 	translateX = function(self, origin, offsetX)
 		local translatedX = origin.x + offsetX
-		return vec2:new(translatedX,  origin.y)
+		return vec2:new(translatedX, origin.y)
 	end,
 
 	translateY = function(self, origin, offsetY)
 		local translatedY = origin.y + offsetY
-		return vec2:new(origin.x,  translatedY)
+		return vec2:new(origin.x, translatedY)
 	end,
 
 	drawCircle = function(self, origin, color, radius)
@@ -249,7 +248,7 @@ local vec2Util = class({
 	end,
 
 	drawBox = function(self, start, size, color)
-		  g_render:box(start, size, color, 0, 2)
+		g_render:box(start, size, color, 0, 2)
 	end,
 })
 
@@ -424,25 +423,82 @@ local math = class({
 local objects = class({
 	xHelper = nil,
 	math = nil,
+	database = nil,
 
-	init = function(self, xHelper, math)
+	init = function(self, xHelper, math, database)
 		self.xHelper = xHelper
 		self.math = math
+		self.database = database
 	end,
 
 	get_bounding_radius = function(self, unit)
 		return unit:get_bounding_radius() or 45
 	end,
-
-	get_enemy_champs = function(self, range)
+	is_enemy_near = function(self, range, position)
+		position = position or g_local.position
+		for _, entity in pairs(features.entity_list:get_enemies()) do
+			local bounding_radius = self:get_bounding_radius(entity)
+			if entity and entity.position:dist_to(position) <= range + bounding_radius then
+				return true
+			end
+		end
+		return false
+	end,
+	get_enemy_champs = function(self, range, position)
+		position = position or g_local.position
 		local enemy_champs = {}
 		for i, unit in ipairs(features.entity_list:get_enemies()) do
-			if self.xHelper:is_alive(unit) and self.xHelper:is_valid(unit) and not self.xHelper:is_invincible(unit) and (range and self.math:dis_sq(g_local.position, unit.position) <= range ^ 2 or self.math:in_aa_range(unit, true)) then
+			if self.xHelper:is_alive(unit) and self.xHelper:is_valid(unit) and not self.xHelper:is_invincible(unit) and (range and self.math:dis_sq(position, unit.position) <= range ^ 2 or self.math:in_aa_range(unit, true)) then
 				table.insert(enemy_champs, unit)
 			end
 		end
 		return enemy_champs
-	end,	
+	end,
+	get_aa_travel_time = function(self, target, unit, speed)
+		unit = unit or g_local
+		speed = speed or nil
+		if not speed then
+			local champion_name = unit.champion_name.text:lower() -- adjust the variable name as needed
+
+			-- default missile speed
+			speed = 1000
+
+			-- Find the champion in the table
+			local champion_data = self.database.DMG_LIST[champion_name]
+			if champion_data then
+				for _, ability_data in ipairs(champion_data) do
+					if ability_data.slot == "AA" then
+						speed = ability_data.missile_speed
+						break
+					end
+				end
+			end
+		end
+
+		local distance = unit.position:dist_to(target.position)
+		return distance / speed
+	end,
+	count_enemy_champs = function(self, range, position)
+		position = position or g_local.position
+		local num = #self:get_enemy_champs(range, position) or 0
+		return num
+	end,
+	get_enemy_minions = function(self, range, pos)
+		pos = pos or g_local.position
+		local enemies = {}
+
+		for _, entity in pairs(features.entity_list:get_enemy_minions()) do
+			if entity and entity.position and entity.position:dist_to(pos) <= range and core.helper:is_alive(entity) then
+				table.insert(enemies, entity)
+			end
+		end
+		return enemies
+	end,
+	count_enemy_minions = function(self, range, position)
+		position = position or g_local.position
+		local num = #self:get_minions(range, position) or 0
+		return num
+	end,
 	is_ready = function(self, slot, unit)
 		unit = unit or g_local
 		return unit:get_spell_book():get_spell_slot(slot):is_ready()
@@ -452,28 +508,28 @@ local objects = class({
 		local spell = unit:get_spell_book():get_spell_slot(slot)
 		local level = spell.Level or 0
 		local cost = spell:get_mana_cost()[level] or 0
-	  
+
 		if unit and spell and cost then
-		  if unit.mana >= cost then
-			return true
-		  else
-			return false
-		  end
-		end	
-	end, 
-	can_cast = function (self, spell, unit)	
+			if unit.mana >= cost then
+				return true
+			else
+				return false
+			end
+		end
+	end,
+	can_cast = function(self, slot, unit)
 		unit = unit or g_local
-		if self:is_ready(spell, unit) and self:has_enough_mana(spell, unit) then
-		  return true
+		if self:is_ready(slot, unit) and self:has_enough_mana(slot, unit) then
+			return true
 		end
 		return false
-	  end,
-	get_spell_level = function (self, slot, unit)	
+	end,
+	get_spell_level = function(self, slot, unit)
 		unit = unit or g_local
-		local level =  unit:get_spell_book():get_spell_slot(slot).level or 0
+		local level = unit:get_spell_book():get_spell_slot(slot).level or 0
 		return level
-	  end,
-	  
+	end,
+
 })
 
 --------------------------------------------------------------------------------
@@ -575,11 +631,12 @@ local xHelper = class({
 	end,
 
 	is_alive = function(self, unit)
-		local alive = unit and not unit:is_invalid_object() and unit:is_visible() and unit:is_alive() and unit:is_targetable()
-		and not self.buffcache:has_buff(unit, "sionpassivezombie")
-		and not unit:get_object_name():lower():find("corpse")
-		and unit.position ~= nil
-		
+		local alive = unit and not unit:is_invalid_object() and unit:is_visible() and unit:is_alive() and
+			unit:is_targetable()
+			and not self.buffcache:has_buff(unit, "sionpassivezombie")
+			and not unit:get_object_name():lower():find("corpse")
+			and unit.position ~= nil
+
 		-- print("checking alive: " .. tostring(unit:get_object_name()))
 		-- print("invalid: " ..tostring( unit:is_invalid_object()))
 		-- print("visible: " .. tostring(unit:is_visible()))
@@ -618,23 +675,23 @@ local damagelib = class({
 
 	CHAMP_PASSIVES = {
 		Jinx = function(self, args)
-			local source = args.source                   -- 13.7
+			local source = args.source -- 13.7
 			if not self.buffcache:has_buff(source, "JinxQ") then return end
 			args.raw_physical = args.raw_physical
 				+ source:get_attack_damage() * 0.1
 		end,
 	},
 	ITEM_PASSIVES = {
-	                                                       -- TODO: wait for inventory api to be added.
+		-- TODO: wait for inventory api to be added.
 		[3153] = function(self, args)
-			local source = args.source                     -- Blade of the Ruined King
+			local source = args.source -- Blade of the Ruined King
 			local mod = self.functions.xHelper:is_melee(source) and 0.12 or 0.08
 			args.raw_physical = args.raw_physical + std_math.min(
 				60, std_math.max(15, mod * args.unit.health))
 		end,
 		[3742] = function(self, args)
-			local source = args.source                     -- Dead Man's Plate
-			local stacks = std_math.min(100, 0)            -- TODO
+			local source = args.source -- Dead Man's Plate
+			local stacks = std_math.min(100, 0) -- TODO
 			args.raw_physical = args.raw_physical + 0.4 * stacks
 				+ 0.01 * stacks * source:get_attack_damage()
 		end,
@@ -645,7 +702,7 @@ local damagelib = class({
 			args.raw_physical = args.raw_physical + 5
 		end,
 		[3124] = function(self, args)
-			local source = args.source                     -- Guinsoo's Rageblade
+			local source = args.source -- Guinsoo's Rageblade
 			args.raw_physical = args.raw_physical +
 				std_math.min(200, source.crit_chance * 200)
 		end,
@@ -665,7 +722,7 @@ local damagelib = class({
 			args.raw_physical = args.raw_physical + 20
 		end,
 		[6677] = function(self, args)
-			local source = args.source                     -- Rageknife
+			local source = args.source -- Rageknife
 			args.raw_physical = args.raw_physical +
 				std_math.min(175, 175 * source.crit_chance)
 		end,
@@ -676,13 +733,13 @@ local damagelib = class({
 			args.raw_physical = args.raw_physical + 5
 		end,
 		[3748] = function(self, args)
-			local source = args.source                     -- Titanic Hydra
+			local source = args.source -- Titanic Hydra
 			local mod = self.functions.xHelper:is_melee(args.source) and { 4, 0.015 } or { 3, 0.01125 }
 			local damage = mod[1] + mod[2] * args.source.max_health
 			args.raw_physical = args.raw_physical + damage
 		end,
 		[3091] = function(self, args)
-			local source = args.source                     -- Wit's End
+			local source = args.source -- Wit's End
 			local damage = ({ 15, 15, 15, 15, 15, 15, 15, 15, 25, 35,
 				45, 55, 65, 75, 76.25, 77.5, 78.75, 80 })[source.level]
 			args.raw_magical = args.raw_magical + damage
@@ -753,8 +810,13 @@ local damagelib = class({
 		local idx = target.index
 		local name = source.champion_name.text
 		local physical = source:get_attack_damage()
-		local args = { raw_magical = 0, raw_physical = physical, true_damage = 0, source = source,
-			unit = features.entity_list:get_by_index(idx) }
+		local args = {
+			raw_magical = 0,
+			raw_physical = physical,
+			true_damage = 0,
+			source = source,
+			unit = features.entity_list:get_by_index(idx)
+		}
 		if name == "Corki" and physical > 0 then
 			return
 				self:calc_mixed_dmg(source, features.entity_list:get_by_index(idx), physical)
@@ -798,23 +860,23 @@ local damagelib = class({
 
 		if spell == "Q" or spell == "W" or spell == "E" or spell == "R" or spell == "QM" or spell == "WM" or spell == "EM" then
 			local level = level or source:get_spell_book():get_spell_slot((
-					{ ["Q"] = e_spell_slot.q, ["QM"] = e_spell_slot.q, ["W"] = e_spell_slot.w, ["WM"] = e_spell_slot.w,
-						["E"] = e_spell_slot.e, ["EM"] = e_spell_slot.e, ["R"] = e_spell_slot.r }
-				)[spell]).level
-			
+				{ ["Q"] = e_spell_slot.q, ["QM"] = e_spell_slot.q, ["W"] = e_spell_slot.w, ["WM"] = e_spell_slot.w,
+					["E"] = e_spell_slot.e, ["EM"] = e_spell_slot.e, ["R"] = e_spell_slot.r }
+			)[spell]).level
+
 			if level <= 0 then return 0 end
 			if level > 5 then level = 5 end
 
-			
+
 			if self.database.DMG_LIST[source.champion_name.text:lower()] then
 				for _, spells in ipairs(self.database.DMG_LIST[source.champion_name.text:lower()]) do
 					if spells.slot == spell then
 						table.insert(cache, spells)
 					end
 				end
-				
+
 				if stage > #cache then stage = #cache end
-				
+
 				for v = #cache, 1, -1 do
 					local spells = cache[v]
 					if spells.stage == stage then
@@ -975,20 +1037,34 @@ local database = class({
 	DMG_LIST = {
 		jinx = { -- 13.6
 			{
+				slot = "AA",
+				stage = 1,
+				damage_type = 1,
+				missile_speed = 1700
+			},
+			{
 				slot = "Q",
 				stage = 1,
 				damage_type = 1,
 				damage = function(self, source, target, level) return 0.1 * source:get_attack_damage() end
 			},
-			{ slot = "W", stage = 1, damage_type = 1,
-				damage = function(self, source, target, level) return ({ 10, 60, 110, 160, 210 })[level] +
-					1.6 * source:get_attack_damage() end },
+			{
+				slot = "W",
+				stage = 1,
+				damage_type = 1,
+				damage = function(self, source, target, level)
+					return ({ 10, 60, 110, 160, 210 })[level] +
+						1.6 * source:get_attack_damage()
+				end
+			},
 			{
 				slot = "E",
 				stage = 1,
 				damage_type = 2,
-				damage = function(self, source, target, level) return ({ 70, 120, 170, 220, 270 })[level] +
-					source:get_ability_power() end
+				damage = function(self, source, target, level)
+					return ({ 70, 120, 170, 220, 270 })[level] +
+						source:get_ability_power()
+				end
 			},
 			{
 				slot = "R",
@@ -1037,15 +1113,19 @@ local database = class({
 				slot = "E",
 				stage = 1,
 				damage_type = 2,
-				damage = function(self, source, target, level) return ({ 65, 100, 135, 170, 205 })[level] +
-					0.55 * source:get_ability_power() end
+				damage = function(self, source, target, level)
+					return ({ 65, 100, 135, 170, 205 })[level] +
+						0.55 * source:get_ability_power()
+				end
 			},
 			{
 				slot = "R",
 				stage = 1,
 				damage_type = 1,
-				damage = function(self, source, target, level) return ({ 150, 300, 450 })[level] +
-					0.4 * source:get_bonus_attack_damage() end
+				damage = function(self, source, target, level)
+					return ({ 150, 300, 450 })[level] +
+						0.4 * source:get_bonus_attack_damage()
+				end
 			},
 		},
 	},
@@ -1146,7 +1226,8 @@ local target_selector = class({
 
 		self.focus_target = self.ts_sec:checkbox("click to focus", g_config:add_bool(true, "focus_target"))
 
-		self.forceTargetMaxDistance = self.ts_sec:slider_int("max distance", g_config:add_int(240, "force_target_max_distance"), 50, 500, 10)
+		self.forceTargetMaxDistance = self.ts_sec:slider_int("max distance",
+			g_config:add_int(240, "force_target_max_distance"), 50, 500, 10)
 
 		self.draw_target = self.drawings_sec:checkbox("visualize targets", g_config:add_bool(true, "draw_targets"))
 
@@ -1340,13 +1421,12 @@ local target_selector = class({
 			return b.health / a.health
 		end
 	},
-	
+
 	get_cache = function(self, range)
 		return self.TARGET_CACHE[range]
 	end,
 
 	refresh_targets = function(self, range)
-
 		if not self.TARGET_CACHE[range] then
 			self.TARGET_CACHE[range] = { enemies = {} }
 		end
@@ -1375,13 +1455,20 @@ local target_selector = class({
 
 			local d = self.math:dis_sq(g_local.position, enemies[i].position)
 			local w = 10000 / (1 + std_math.sqrt(d))
-			if not self.xHelper:is_melee(enemies[i]) then w = w * self.weight_dis:get_value() / 10 else w = w *
-				(self.weight_dis:get_value() / 10 + 1) end
+			if not self.xHelper:is_melee(enemies[i]) then
+				w = w * self.weight_dis:get_value() / 10
+			else
+				w = w *
+					(self.weight_dis:get_value() / 10 + 1)
+			end
 
-			local factor = { damage = self.weight_dmg:get_value(), prio = self.weight_prio:get_value() / 10,
-				health = self.weight_hp:get_value() / 10 }
+			local factor = {
+				damage = self.weight_dmg:get_value(),
+				prio = self.weight_prio:get_value() / 10,
+				health = self.weight_hp:get_value() / 10
+			}
 			new_weight.damage = (self.damagelib:calc_dmg(g_local, enemies[i], 100) / (1 + enemies[i].health) * 20) *
-			factor.damage
+				factor.damage
 			local mod = { 1, 1.5, 1.75, 2, 2.5 }
 			new_weight.priority = mod[self.PRIORITY_LIST[enemies[i].champion_name] or 3] * factor.prio
 			new_weight.health = (weight[2] or 0) * factor.health * factor.health
@@ -1394,7 +1481,6 @@ local target_selector = class({
 		end
 
 		table.sort(self.TARGET_CACHE[range].enemies, function(a, b) return a.weight.total > b.weight.total end)
-
 	end,
 
 	get_main_target = function(self, range)
@@ -1402,7 +1488,8 @@ local target_selector = class({
 		self:refresh_targets(range)
 		if #self.TARGET_CACHE[range].enemies == 0 then return nil end
 		local target = features.entity_list:get_by_index(self.TARGET_CACHE[range].enemies[1].target.index)
-		local good_target = target and not xHelper:is_invincible(target) and tostring(xHelper:is_alive(target)) and xHelper:is_valid(target)
+		local good_target = target and not xHelper:is_invincible(target) and tostring(xHelper:is_alive(target)) and
+		xHelper:is_valid(target)
 
 
 		if target and good_target then return target end
@@ -1425,7 +1512,7 @@ local target_selector = class({
 			local enemy = features.entity_list:get_by_index(self.FORCED_TARGET.index)
 			if enemy and xHelper:is_alive(enemy) and xHelper:is_valid(enemy) and not xHelper:is_invincible(enemy) then
 				self.FORCED_TARGET = enemy
-			else 
+			else
 				self.FORCED_TARGET = nil
 			end
 		end
@@ -1452,7 +1539,7 @@ local target_selector = class({
 				end
 			end
 
-			if not target or ( target and self.FORCED_TARGET and self.FORCED_TARGET.index == target.index ) then
+			if not target or (target and self.FORCED_TARGET and self.FORCED_TARGET.index == target.index) then
 				self.FORCED_TARGET = nil
 				self.lastForceChange = g_time
 			else
@@ -1484,8 +1571,9 @@ local target_selector = class({
 			-- g_render:filled_triangle(left, right, center, util.Colors.solid.yellow)
 
 			-- vec3Util:drawCircle(forced.position, util.Colors.solid.magenta, 100)
-			
-			vec3Util:drawCircleFull(forced.position, util.Colors.transparent.magenta, objects:get_bounding_radius(forced) or 100)
+
+			vec3Util:drawCircleFull(forced.position, util.Colors.transparent.magenta,
+				objects:get_bounding_radius(forced) or 100)
 		end
 		if cache and cache.enemies then
 			for i, data in ipairs(cache.enemies) do
@@ -1493,7 +1581,8 @@ local target_selector = class({
 				if self.draw_target:get_value() and target:is_visible() then
 					if i == 1 and not forced then
 						-- g_render:circle_3d(target.position, color:new(255, 0, 0, 55), 100, 3, 55, 1)
-						vec3Util:drawCircleFull(target.position, color:new(255, 0, 0, 55), target:get_bounding_radius() or 100)
+						vec3Util:drawCircleFull(target.position, color:new(255, 0, 0, 55),
+							target:get_bounding_radius() or 100)
 					end
 				end
 
@@ -1501,7 +1590,7 @@ local target_selector = class({
 					if target.position:to_screen() ~= nil then
 						g_render:text(
 							vec2:new(target.position:to_screen().x + 60,
-							target.position:to_screen().y - 10),
+								target.position:to_screen().y - 10),
 							color:new(255, 255, 255),
 							data.weight.total .. "",
 							nil,
@@ -1666,7 +1755,7 @@ local permashow = class({
 				local state_text, state_color = self:get_state_text_and_color(hotkey)
 				local state_x = x + 10 + size.x + (state_size.x - g_render:get_text_size(state_text, font, 15).x) / 2
 				local state_y = y + 28 + (count - 1) * 20 +
-				(state_size.y - g_render:get_text_size(state_text, font, 15).y) / 2
+					(state_size.y - g_render:get_text_size(state_text, font, 15).y) / 2
 				g_render:text(vec2:new(state_x, state_y), state_color, state_text, font, 15)
 
 				height = std_math.max(height, size.x + state_size.x)
@@ -1724,7 +1813,7 @@ local permashow = class({
 
 	is_point_inside = function(self, point)
 		return point.x >= self.x:get_int() and point.x <= self.x:get_int() + self.width and point.y >= self.y:get_int() and
-		point.y <= self.y:get_int() + 25
+			point.y <= self.y:get_int() + 25
 	end,
 
 	is_cursor_inside_text = function(self, cursorPos, text, x, y, font, fontSize)
@@ -1813,6 +1902,8 @@ local visualizer = class({
 		-- Menus
 		self.nav = menu.get_main_window():find_navigation("xVisuals")
 		self.vis_sect = self.nav:add_section("visualizer")
+		self.min_sect = self.nav:add_section("Minions")
+		self.checkboxMinionDmg = self.min_sect:checkbox("draw Minions", g_config:add_bool(true, "MIN"))
 		self.checkboxVisualDmg = self.vis_sect:checkbox("damage visual", g_config:add_bool(true, "visualize damage"))
 		self.visualizer_split_colors = self.vis_sect:checkbox("^ Split colors", g_config:add_bool(true, "split_colors"))
 		self.visualizer_show_combined_bars = self.vis_sect:checkbox("Show combined bars",
@@ -1828,7 +1919,7 @@ local visualizer = class({
 		self.visualizer_visualize_r = self.vis_sect:checkbox("Visualize R", g_config:add_bool(true, "visualize_r"))
 		self.visualizer_show_text = self.vis_sect:checkbox("Show text", g_config:add_bool(true, "visualizer_show_text"))
 	end,
-    render_damage_bar = function(self, enemy, combodmg, aadmg, qdmg, wdmg, edmg, rdmg, bar_height, yOffset)
+	render_damage_bar = function(self, enemy, combodmg, aadmg, qdmg, wdmg, edmg, rdmg, bar_height, yOffset)
 		yOffset = yOffset or 0
 		local screen = g_render:get_screensize()
 		local width_offset = 0.055
@@ -1866,24 +1957,25 @@ local visualizer = class({
 			remaining_health = DrawDamageSection(self.util.Colors.transparent.green, aadmg, remaining_health)
 		end
 		if qdmg > 0 then
-            remaining_health = DrawDamageSection(self.util.Colors.transparent.lightMagenta, qdmg, remaining_health)
-        end
+			remaining_health = DrawDamageSection(self.util.Colors.transparent.lightMagenta, qdmg, remaining_health)
+		end
 		if wdmg > 0 then
 			remaining_health = DrawDamageSection(self.util.Colors.transparent.blue, wdmg, remaining_health)
 		end
 		if edmg > 0 then
-            remaining_health = DrawDamageSection(self.util.Colors.transparent.orange, edmg, remaining_health)
-        end
+			remaining_health = DrawDamageSection(self.util.Colors.transparent.orange, edmg, remaining_health)
+		end
 		if rdmg > 0 then
 			remaining_health = DrawDamageSection(self.util.Colors.transparent.red, rdmg, remaining_health)
 		end
-	end,render_stacked_bars = function(self, enemy, aadmg, qdmg, wdmg, edmg, rdmg)
+	end,
+	render_stacked_bars = function(self, enemy, aadmg, qdmg, wdmg, edmg, rdmg)
 		local screen = g_render:get_screensize()
 		local height_offset = 0.010
 		local bar_height = (screen.y * height_offset)
 		local last_offset_top = -15
 		local last_offset_bottom = 15
-	
+
 		if self.visualizer_visualize_w:get_value() then
 			self:render_damage_bar(enemy, 0, 0, 0, wdmg, 0, 0, bar_height, last_offset_top)
 			last_offset_top = last_offset_top - 15
@@ -1898,15 +1990,13 @@ local visualizer = class({
 		if self.visualizer_visualize_e:get_value() then
 			self:render_damage_bar(enemy, 0, 0, 0, 0, edmg, 0, bar_height, last_offset_bottom)
 			last_offset_bottom = last_offset_bottom + 15
-
 		end
 		if self.visualizer_visualize_r:get_value() then
 			self:render_damage_bar(enemy, 0, 0, 0, 0, 0, rdmg, bar_height, last_offset_bottom)
 			last_offset_bottom = last_offset_bottom + 15
 		end
-
 	end,
-	
+
 	render_combined_bars = function(self, enemy, aadmg, qdmg, wdmg, edmg, rdmg)
 		local screen = g_render:get_screensize()
 		local height_offset = 0.010
@@ -1927,20 +2017,20 @@ local visualizer = class({
 			rdmg = 0
 		end
 		local combodmg = aadmg + qdmg + wdmg + edmg + rdmg
-	
-		
+
+
 		if self.visualizer_split_colors:get_value() then
 			self:render_damage_bar(enemy, 0, aadmg, qdmg, wdmg, edmg, rdmg, bar_height, 0)
 		else
 			self:render_damage_bar(enemy, combodmg, aadmg, qdmg, wdmg, edmg, rdmg, bar_height, 0)
 		end
 	end,
-	display_killable_text = function (self, enemy, nmehp, aadmg, qdmg, wdmg, edmg, rdmg)
+	display_killable_text = function(self, enemy, nmehp, aadmg, qdmg, wdmg, edmg, rdmg)
 		local pos = enemy.position
 		if pos:to_screen() ~= nil then
 			local spells_text = ""
 			local killable_text = ""
-	
+
 			local autos_to_kill = std_math.ceil(nmehp / aadmg)
 			if nmehp <= aadmg then
 				killable_text = "AA Kill"
@@ -1983,7 +2073,8 @@ local visualizer = class({
 					autos_to_kill = std_math.ceil((nmehp - rdmg) / aadmg)
 					spells_text = (spells_text ~= "" and " + " or "") .. "R"
 				end
-				killable_text = spells_text .. (spells_text ~= "" and " + " or "") .. tostring(autos_to_kill) .. " AA to kill"
+				killable_text = spells_text ..
+				(spells_text ~= "" and " + " or "") .. tostring(autos_to_kill) .. " AA to kill"
 			end
 			if killable_text ~= "" then
 				killable_text = killable_text:gsub("^%s*+", "")
@@ -1992,30 +2083,30 @@ local visualizer = class({
 			end
 		end
 	end,
-	get_damage_array= function (self, enemy)
+	get_damage_array = function(self, enemy)
 		local base_auto_dmg = self.damagelib:calc_aa_dmg(g_local, enemy)
 		local aadmg = 0
 		local qdmg = 0
 		local wdmg = 0
-        local edmg = 0
+		local edmg = 0
 		local rdmg = 0
 		local aadmg = base_auto_dmg * self.visualizer_autos_slider:get_value()
 		-- if is
 		if self.objects:can_cast(e_spell_slot.q) then
-            qdmg = self.damagelib:calc_spell_dmg("Q", g_local, enemy, 1, self.objects:get_spell_level(e_spell_slot.q))
-        end
+			qdmg = self.damagelib:calc_spell_dmg("Q", g_local, enemy, 1, self.objects:get_spell_level(e_spell_slot.q))
+		end
 		if self.objects:can_cast(e_spell_slot.w) then
-		 	 wdmg = self.damagelib:calc_spell_dmg("W", g_local, enemy, 1, self.objects:get_spell_level(e_spell_slot.w))
+			wdmg = self.damagelib:calc_spell_dmg("W", g_local, enemy, 1, self.objects:get_spell_level(e_spell_slot.w))
 		end
 		if self.objects:can_cast(e_spell_slot.e) then
-		 	 edmg = self.damagelib:calc_spell_dmg("E", g_local, enemy, 1, self.objects:get_spell_level(e_spell_slot.e))
+			edmg = self.damagelib:calc_spell_dmg("E", g_local, enemy, 1, self.objects:get_spell_level(e_spell_slot.e))
 		end
 		if self.objects:can_cast(e_spell_slot.r) then
-		  rdmg = self.damagelib:calc_spell_dmg("R", g_local, enemy, 1, self.objects:get_spell_level(e_spell_slot.r))
+			rdmg = self.damagelib:calc_spell_dmg("R", g_local, enemy, 1, self.objects:get_spell_level(e_spell_slot.r))
 		end
 		return aadmg, qdmg, wdmg, edmg, rdmg
-	  end,
-	  Visualize_damage = function (self, enemy)
+	end,
+	Visualize_damage = function(self, enemy)
 		local nmehp = enemy.health
 		local aadmg, qdmg, wdmg, edmg, rdmg = self:get_damage_array(enemy)
 
@@ -2023,20 +2114,65 @@ local visualizer = class({
 		if self.visualizer_show_combined_bars:get_value() then
 			self:render_combined_bars(enemy, aadmg, qdmg, wdmg, edmg, rdmg)
 		end
-	-- stacked bars
+		-- stacked bars
 		if self.visualizer_show_stacked_bars:get_value() then
 			self:render_stacked_bars(enemy, aadmg, qdmg, wdmg, edmg, rdmg)
 		end
-  -- killable text
+		-- killable text
 		if self.visualizer_show_text:get_value() then
 			self:display_killable_text(enemy, nmehp, self.damagelib:calc_aa_dmg(g_local, enemy), qdmg, wdmg, edmg, rdmg)
 		end
 	end,
+	drawMins = function(self)
+		local MinionInRange = self.objects:get_enemy_minions(1500)
+		for _, obj_min in pairs(MinionInRange) do
+			if obj_min and obj_min:is_minion() then
+				local color = nil
+				local aa = self.damagelib:calc_aa_dmg(g_local, obj_min)
+				local real_hp = obj_min.health
+				local delay = self.objects:get_aa_travel_time(obj_min) + 0.35
+				local pred_hp = features.prediction:predict_health(obj_min, delay, true)
+				local dying = pred_hp < 1
+				local has_damage_incoming = pred_hp == real_hp
+				local can_kill = pred_hp <= aa
+				local soon_kill = pred_hp <= aa + aa and has_damage_incoming and pred_hp > aa
+
+				if can_kill then
+					if has_damage_incoming then
+						if dying then
+							color = self.util.Colors.solid.red
+						else
+							color = self.util.Colors.solid.green
+						end
+					else
+						color = self.util.Colors.solid.blue
+					end
+				elseif soon_kill then
+					if has_damage_incoming then
+						color = self.util.Colors.solid.red
+					else
+						color = self.util.Colors.solid.yellow
+					end
+				else
+					color = self.util.Colors.solid.white
+				end
+				-- draw 3d circl of color on minion
+				if color then
+					g_render:circle_3d(obj_min.position, color, 35, 2, 50, 1)
+				end
+			end
+		end
+	end,
 	draw = function(self)
-		for i, enemy in pairs(features.entity_list:get_enemies()) do
-		  if enemy and self.xHelper:is_alive(enemy) and enemy:is_visible() and g_local.position:dist_to(enemy.position) < 3000 then
-			self:Visualize_damage(enemy)
-		  end
+		if self.checkboxVisualDmg:get_value() then
+			for i, enemy in pairs(features.entity_list:get_enemies()) do
+				if enemy and self.xHelper:is_alive(enemy) and enemy:is_visible() and g_local.position:dist_to(enemy.position) < 3000 then
+					self:Visualize_damage(enemy)
+				end
+			end
+		end
+		if self.checkboxMinionDmg:get_value() then
+			self:drawMins()
 		end
 	end,
 	register = function(self, identifier, name, key, is_toggle, cfg)
@@ -2065,8 +2201,9 @@ local debug = class({
 		self.LastMsg1 = "init"
 		self.LastMsg2 = "init"
 
+		self.dbg_sec = self.nav:add_section("spacer")
 		self.dbg_sec = self.nav:add_section("debug")
-		self.draw_sec = self.nav:add_section("color settings")
+		--self.draw_sec = self.nav:add_section("color settings")
 		self.dbg_enable = self.dbg_sec:checkbox("enabled", g_config:add_bool(true, "dbg_enable"))
 
 		Res = g_render:get_screensize()
@@ -2115,8 +2252,8 @@ local debug = class({
 		if self.Last_dbg_msg_time == -1 then
 			g_render:text(pos, self.Colors.solid.white, "bad g_time", font, 30)
 			return false
-		end                                                                                                                  -- skip bad time
-		if g_time - self.Last_dbg_msg_time >= 10 then return end                                                             -- fade out
+		end                                                -- skip bad time
+		if g_time - self.Last_dbg_msg_time >= 10 then return end -- fade out
 
 
 
@@ -2141,8 +2278,8 @@ local x = class({
 	buffcache = buffcache:new(),
 	helper = xHelper:new(buffcache),
 	math = math:new(xHelper, buffcache),
-	objects = objects:new(xHelper, math),
 	database = database:new(xHelper),
+	objects = objects:new(xHelper, math, database),
 	damagelib = damagelib:new(xHelper, math, database, buffcache),
 	visualizer = visualizer:new(util, xHelper, math, objects, damagelib),
 	debug = debug:new(util),
