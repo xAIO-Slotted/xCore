@@ -1,4 +1,4 @@
-XCORE_VERSION = "1.1.1"
+XCORE_VERSION = "1.1.2"
 XCORE_LUA_NAME = "xCore.lua"
 XCORE_REPO_BASE_URL = "https://raw.githubusercontent.com/xAIO-Slotted/xCore/main/"
 XCORE_REPO_SCRIPT_PATH = XCORE_REPO_BASE_URL .. XCORE_LUA_NAME
@@ -152,6 +152,31 @@ local vec3Util = class({
 	translateZ = function(self, origin, offsetZ)
 		local translatedZ = origin.z + offsetZ
 		return vec3:new(origin.x, origin.y, translatedZ)
+	end,
+	project_vector_on_segment = function(self, v1, v2, v)
+		local cx, cy, ax, ay, bx, by = v.x, v.z, v1.x, v1.z, v2.x, v2.z
+		local rL = ((cx - ax) * (bx - ax) + (cy - ay) * (by - ay)) / ((bx - ax) ^ 2 + (by - ay) ^ 2)
+		local pointLine = vec3:new(ax + rL * (bx - ax), 0, ay + rL * (by - ay))
+		local rS = rL < 0 and 0 or (rL > 1 and 1 or rL)
+		local isOnSegment = rS == rL
+		local pointSegment = isOnSegment and pointLine or vec3:new(ax + rS * (bx - ax), 0, ay + rS * (by - ay))
+
+		return {PointSegment = pointSegment, PointLine = pointLine, IsOnSegment = isOnSegment}
+	end,
+
+	is_colliding = function(self, start_pos, end_pos, target, width)
+		for i, enemy in pairs(features.entity_list:get_enemies()) do
+			if  enemy and enemy:is_alive() and target.champion_name.text ~= enemy.champion_name.text then       
+				local ProjectionInfo = self:project_vector_on_segment(start_pos, end_pos, enemy.position)
+				local DistSegToEnemy = ProjectionInfo.PointSegment:dist_to(enemy.position)
+				local DistToBase = start_pos:dist_to(end_pos)
+				local EnemyDistToBase = start_pos:dist_to(start_pos, enemy.position)
+				if ProjectionInfo.IsOnSegment and DistSegToEnemy < width + 65 and DistToBase > EnemyDistToBase then             
+					return true
+				end
+			end
+		end
+		return false
 	end,
 
 	drawCircle = function(self, origin, color, radius)
@@ -338,7 +363,7 @@ local util = class({
 			darkMagenta = color:new(128, 0, 128, 130),
 		}
 	},
-	rift_location = {
+	rift_locations = {
 		["Blue_Base"] = {x = 1184, y = 95, z = 1176},
 		["Red_Base"] = {x = 13500, y = 91, z = 13592},
 		["Red_Recall"] = {x = 14312, y = 171, z = 14348},
@@ -384,6 +409,7 @@ local util = class({
 		["Top_Lane"] = {x = 2161, y = 52, z = 12369},
 	},
 
+
 	init = function(self)
 		self.screen = g_render:get_screensize()
 		self.screenX = self.screen.x
@@ -393,15 +419,13 @@ local util = class({
 	textAt = function(self, pos, color, text)
 		g_render:text(pos, color, text, self.font, self.fontSize)
 	end,
-	
-
-	GetClosestRiftLocation = function(x, y, z)
+	GetClosestRiftLocation = function(self, x, y, z)
 		-- Prints("My hero position: x=" .. tostring(g_local.position.x) .. ", y=" .. tostring(g_local.position.y) .. ", z=" .. tostring(g_local.position.z))
 		
 		local closestLocation = ""
 		local shortestDistance = std_math.huge
 		
-		for location, coords in pairs(self.rift_location) do
+		for location, coords in pairs(self.rift_locations) do
 			local distance = std_math.sqrt((coords.x - x)^2 + (coords.y - y)^2 + (coords.z - z)^2)
 			if distance < shortestDistance then
 				closestLocation = location
@@ -411,6 +435,7 @@ local util = class({
 		 
 		return closestLocation,std_math.floor(shortestDistance)
 	end,
+
 })
 
 --------------------------------------------------------------------------------
@@ -481,6 +506,7 @@ local math = class({
 
 --------------------------------------------------------------------------------
 
+
 local objects = class({
 	xHelper = nil,
 	math = nil,
@@ -491,12 +517,12 @@ local objects = class({
 		self.xHelper = xHelper
 		self.math = math
 		self.database = database
+		self.util = util
 	end,
 	
-	get_team_color = function(unit)
+	get_team_color = function(self, unit)
 		unit = unit or g_local
 		local team = unit.team
-
 		if team == 200 then
 			return 200, "red"
 		elseif team == 100 then
@@ -507,14 +533,14 @@ local objects = class({
 	end,
 	get_baseult_pos = function(self, unit)
 		if not unit then return nil end
+
 		local team, color = self:get_team_color(unit)
-		local baseult = nil
+		local baseult_pos = nil
 		if color == "red" then
-			baseult = self.util.rift_location["Red_Recall"]
+			baseult_pos = vec3:new(self.util.rift_locations["Red_Recall"].x, self.util.rift_locations["Red_Recall"].y, self.util.rift_locations["Red_Recall"].z)
 		elseif color == "blue" then
-			baseult = self.util.rift_location["Blue_Recall"]
+			baseult_pos = vec3:new(self.util.rift_locations["Blue_Recall"].x, self.util.rift_locations["Blue_Recall"].y, self.util.rift_locations["Blue_Recall"].z)
 		end
-		local baseult_pos = vec3:new(baseult.x, baseult.y, baseult.z)
 		return baseult_pos
 	end,
 	get_bounding_radius = function(self, unit)
@@ -539,6 +565,16 @@ local objects = class({
 			end
 		end
 		return enemy_champs
+	end,
+	get_ally_champs = function(self, range, position)
+		position = position or g_local.position
+		local ally_champs = {}
+		for i, unit in ipairs(features.entity_list:get_allies()) do
+			if self.xHelper:is_alive(unit) and self.xHelper:is_valid(unit) and not self.xHelper:is_invincible(unit) and (range and self.math:dis_sq(position, unit.position) <= range ^ 2 or self.math:in_aa_range(unit, true)) then
+				table.insert(ally_champs, unit)
+			end
+		end
+		return ally_champs
 	end,
 	get_aa_travel_time = function(self, target, unit, speed)
 		unit = unit or g_local
