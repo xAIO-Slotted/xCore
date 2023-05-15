@@ -1,4 +1,4 @@
-XCORE_VERSION = "1.1.3"
+XCORE_VERSION = "1.1.4"
 XCORE_LUA_NAME = "xCore.lua"
 XCORE_REPO_BASE_URL = "https://raw.githubusercontent.com/xAIO-Slotted/xCore/main/"
 XCORE_REPO_SCRIPT_PATH = XCORE_REPO_BASE_URL .. XCORE_LUA_NAME
@@ -519,7 +519,38 @@ local objects = class({
 		self.database = database
 		self.util = util
 	end,
-	
+	get_current_target_of_slot = function(self, slots, unit)
+		unit = unit or g_local
+		local target = nil
+		if unit and self.xHelper:is_alive(unit) then
+			local spell_book = unit:get_spell_book()
+			local cast_info = spell_book:get_spell_cast_info()
+			if spell_book and cast_info then
+				for _, slot in ipairs(slots) do
+					if cast_info.slot == slot then
+						local target_index = cast_info:get_target_index()
+						if target_index then
+							target = features.entity_list:get_by_index(target_index)
+						end
+						break -- If we found the slot, no need to continue the loop
+					end
+				end
+			end
+		end
+		return target or nil
+	end,
+	get_current_target = function(self, unit)
+		unit = unit or g_local
+		local target = nil
+		if unit and self.xHelper:is_alive(unit) then
+			local spell_book = unit:get_spell_book()
+			local cast_info = spell_book:get_spell_cast_info()
+			if spell_book and cast_info then
+				target = cast_info:get_target_index()
+			end
+		end
+		return target or nil
+	end,
 	get_team_color = function(self, unit)
 		unit = unit or g_local
 		local team = unit.team
@@ -611,14 +642,20 @@ local objects = class({
 
 		for _, entity in pairs(features.entity_list:get_enemy_minions()) do
 			if entity and entity.position and entity.position:dist_to(pos) <= range and core.helper:is_alive(entity) then
-				table.insert(enemies, entity)
+				local object_name = entity:get_object_name():lower()
+
+				if string.find(object_name, "sru_crab") or string.find(object_name, "sru_dragon") or string.find(object_name, "sru_riftherald") or string.find(object_name, "sru_baron")
+				or string.find(object_name, "sru_gromp") or string.find(object_name, "sru_blue") or string.find(object_name, "sru_murkwolf")
+				or string.find(object_name, "sru_razorbeak") or string.find(object_name, "sru_red") or string.find(object_name, "sru_krug")
+				or string.find(object_name, "sru_chaosminion") or string.find(object_name, "sru_orderminion") then table.insert(enemies, entity) end
+
 			end
 		end
 		return enemies
 	end,
 	count_enemy_minions = function(self, range, position)
 		position = position or g_local.position
-		local num = #self:get_minions(range, position) or 0
+		local num = #self:get_enemy_minions(range, position) or 0
 		return num
 	end,
 	is_ready = function(self, slot, unit)
