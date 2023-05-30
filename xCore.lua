@@ -1,4 +1,4 @@
-XCORE_VERSION = "1.1.4"
+XCORE_VERSION = "1.1.5"
 XCORE_LUA_NAME = "xCore.lua"
 XCORE_REPO_BASE_URL = "https://raw.githubusercontent.com/xAIO-Slotted/xCore/main/"
 XCORE_REPO_SCRIPT_PATH = XCORE_REPO_BASE_URL .. XCORE_LUA_NAME
@@ -636,6 +636,7 @@ local objects = class({
 		local num = #self:get_enemy_champs(range, position) or 0
 		return num
 	end,
+	
 	get_enemy_minions = function(self, range, pos)
 		pos = pos or g_local.position
 		local enemies = {}
@@ -657,6 +658,29 @@ local objects = class({
 		position = position or g_local.position
 		local num = #self:get_enemy_minions(range, position) or 0
 		return num
+	end,
+	is_big_jungle = function(self, object)
+		local name = object:get_object_name():lower()		
+		local bigJungleMonsters = {
+			"sru_gromp",
+			"sru_blue",
+			"sru_murkwolf",
+			"sru_razorbeak",
+			"sru_red",
+			"sru_krug",
+			"sru_crab",
+			"sru_dragon",
+			"sru_riftherald",
+			"sru_baron",
+		}
+	
+		for _, monsterName in pairs(bigJungleMonsters) do
+			if name == monsterName then
+				return true
+			end
+		end
+	
+		return false
 	end,
 	is_ready = function(self, slot, unit)
 		unit = unit or g_local
