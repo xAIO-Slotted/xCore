@@ -1,4 +1,4 @@
-XCORE_VERSION = "1.1.5"
+XCORE_VERSION = "1.1.6"
 XCORE_LUA_NAME = "xCore.lua"
 XCORE_REPO_BASE_URL = "https://raw.githubusercontent.com/xAIO-Slotted/xCore/main/"
 XCORE_REPO_SCRIPT_PATH = XCORE_REPO_BASE_URL .. XCORE_LUA_NAME
@@ -7,6 +7,167 @@ local std_math = math
 --------------------------------------------------------------------------------
 
 local font = 'corbel'
+
+local e_key = {
+	lbutton = 1,
+	rbutton = 2,
+	cancel = 3,
+	mbutton = 4,
+	xbutton1 = 5,
+	xbutton2 = 6,
+	back = 8,
+	tab = 9,
+	clear = 12,
+	return_key = 13,
+	shift = 16,
+	control = 17,
+	menu = 18,
+	pause = 19,
+	capital = 20,
+	kana = 21,
+	hanguel = 22,
+	hangul = 23,
+	escape = 27,
+	convert = 28,
+	nonconvert = 29,
+	accept = 30,
+	modechange = 31,
+	space = 32,
+	prior = 33,
+	next = 34,
+	end_key = 35,
+	home = 36,
+	left = 37,
+	up = 38,
+	right = 39,
+	down = 40,
+	select = 41,
+	print = 42,
+	execute = 43,
+	snapshot = 44,
+	insert = 45,
+	delete_key = 46,
+	help = 47,
+	_0 = 48,
+	_1 = 49,
+	_2 = 50,
+	_3 = 51,
+	_4 = 52,
+	_5 = 53,
+	_6 = 54,
+	_7 = 55,
+	_8 = 56,
+	_9 = 57,
+	A = 65,
+	B = 66,
+	C = 67,
+	D = 68,
+	E = 69,
+	F = 70,
+	G = 71,
+	H = 72,
+	I = 73,
+	J = 74,
+	K = 75,
+	L = 76,
+	M = 77,
+	N = 78,
+	O = 79,
+	P = 80,
+	Q = 81,
+	R = 82,
+	S = 83,
+	T = 84,
+	U = 85,
+	V = 86,
+	W = 87,
+	X = 88,
+	Y = 89,
+	Z = 90,
+	n0 = 96,
+	n1 = 97,
+	n2 = 98,
+	n3 = 99,
+	n4 = 100,
+	n5 = 101,
+	n6 = 102,
+	n7 = 103,
+	n8 = 104,
+	n9 = 105,
+	f1 = 112,
+ }
+
+
+local mode = {
+	Combo_key = 1,
+	Harass_key = 2,
+	Clear_key = 3,
+	Lasthit = 4,
+	Freeze = 5,
+	Flee = 6,
+	Idle_key = 0,
+	Recalling = 0
+}
+
+local chance_strings = {
+	[0] = "low",
+	[1] = "medium",
+	[2] = "high",
+	[3] = "very_high",
+	[4] = "immobile"
+}
+
+ local buff_type = {
+	Internal = 0,
+	Aura = 1,
+	CombatEnchancer = 2,
+	CombatDehancer = 3,
+	SpellShield = 4,
+	Stun = 5,
+	Invisibility = 6,
+	Silence = 7,
+	Taunt = 8,
+	Berserk = 9,
+	Polymorph = 10,
+	Slow = 11,
+	Snare = 12,
+	Damage = 13,
+	Heal = 14,
+	Haste = 15,
+	SpellImmunity = 16,
+	PhysicalImmunity = 17,
+	Invulnerability = 18,
+	AttackSpeedSlow = 19,
+	NearSight = 20,
+	Currency = 21,
+	Fear = 22,
+	Charm = 23,
+	Poison = 24,
+	Suppression = 25,
+	Blind = 26,
+	Counter = 27,
+	Shred = 28,
+	Flee = 29,
+	Knockup = 30,
+	Knockback = 31,
+	Disarm = 32,
+	Grounded = 33,
+	Drowsy = 34,
+	Asleep = 35,
+	Obscured = 36,
+	ClickProofToEnemies = 37,
+	Unkillable = 38
+ }
+ local rates = { "slow", "instant", "very slow" }
+ 
+ function get_menu_val(cfg)
+	return cfg:get_value()
+end
+
+dancing = false
+state = "atMiddle" -- can be "atTop", "atMiddle", or "atBottom"
+top, mid, bot = nil, nil, nil
+
 
 --------------------------------------------------------------------------------
 
@@ -137,7 +298,19 @@ local vec3Util = class({
 		local rotatedZ = math.sin(angle) * (point.x - origin.x) + math.cos(angle) * (point.z - origin.z) + origin.z
 		return vec3:new(rotatedX, point.y, rotatedZ)
 	end,
+	distance = function(self, start_point, end_point)
+		--print all types
+		-- console:log("start_point: " .. type(start_point))
+		-- console:log("end_point: " .. type(end_point) .. "x: " .. end_point.x .. " y: " .. end_point.y)
 
+		local dx = start_point.x - end_point.x
+		local dy = start_point.y - end_point.y
+		local dz = start_point.z - end_point.z
+		
+		local distance_squared = dx*dx + dy*dy + dz*dz
+		return std_math.sqrt(distance_squared)
+	end
+	,
 	translate = function(self, origin, offsetX, offsetZ)
 		local translatedX = origin.x + offsetX
 		local translatedZ = origin.z + offsetZ
@@ -452,6 +625,9 @@ local math = class({
 		self.xHelper = xHelper
 		self.buffcache = buff_cache
 	end,
+	get_menu_value = function(self, cfg)
+		return cfg:get_value()
+	end,
 
 	dis = function(self, p1, p2)
 		return std_math.sqrt(self:DistanceSqr(p1, p2))
@@ -469,7 +645,6 @@ local math = class({
 		if angle < 0 then angle = angle + 360 end
 		return angle > 180 and 360 - angle or angle
 	end,
-
 	is_facing = function(self, source, unit)
 		local dir = source.direction
 		local angle = self:angle_between(source, unit, dir)
@@ -550,6 +725,10 @@ local objects = class({
 			end
 		end
 		return target or nil
+	end,
+	get_name = function(self, unit)
+		unit = unit or g_local
+		return unit:get_object_name() or nil
 	end,
 	get_team_color = function(self, unit)
 		unit = unit or g_local
@@ -747,6 +926,7 @@ local buffcache = class({
 --------------------------------------------------------------------------------
 
 local xHelper = class({
+	
 	HYBRID_RANGED = { "Elise", "Gnar", "Jayce", "Kayle", "Nidalee", "Zeri" },
 	INVINCIBILITY_BUFFS = {
 		["aatroxpassivedeath"] = true,
@@ -771,10 +951,22 @@ local xHelper = class({
 	init = function(self, buffcache)
 		self.buffcache = buffcache
 	end,
-
+	get_mode = function (self)
+		return features.orbwalker:get_mode()
+	end,
+	get_menu_val = function(self, cfg)
+		return cfg:get_value()
+	end,
+	get_game_time = function(self)
+		return g_time
+	end,
 	is_melee = function(self, unit)
 		return unit.attack_range < 300
 			and self.HYBRID_RANGED[unit.champion_name] ~= nil
+	end,
+
+	get_local_player = function(self)
+		return g_local
 	end,
 
 	get_aa_range = function(self, unit)
@@ -2082,13 +2274,14 @@ local visualizer = class({
 	visualizer_show_text = nil,
 
 
-	init = function(self, util, xHelper, math, objects, damagelib)
+	init = function(self, util, vec3_util, xHelper, math, objects, damagelib)
 		self.Last_cast_time = g_time
+		self.vec3_util = vec3_util
 		self.xHelper = xHelper
 		self.math = math
 		self.util = util
 		self.damagelib = damagelib
-
+	
 		if self.damagelib == nil then
 			print("bad bad bad")
 		end
@@ -2100,6 +2293,8 @@ local visualizer = class({
 		self.checkboxMinionDmg = self.min_sect:checkbox("draw Minions", g_config:add_bool(true, "MIN"))
 		self.checkboxVisualDmg = self.vis_sect:checkbox("damage visual", g_config:add_bool(true, "visualize damage"))
 		self.visualizer_split_colors = self.vis_sect:checkbox("^ Split colors", g_config:add_bool(true, "split_colors"))
+		self.visualizer_killable_colors = self.vis_sect:checkbox("^ Killable colors", g_config:add_bool(true, "Killable_colors"))
+
 		self.visualizer_show_combined_bars = self.vis_sect:checkbox("Show combined bars",
 			g_config:add_bool(true, "show_combined_bars"))
 		self.visualizer_show_stacked_bars = self.vis_sect:checkbox("Show stacked bars",
@@ -2107,12 +2302,16 @@ local visualizer = class({
 		self.visualizer_visualize_autos = self.vis_sect:checkbox("Visualize Autos",
 			g_config:add_bool(true, "visualize_autos"))
 		self.visualizer_autos_slider = self.vis_sect:slider_int("x", g_config:add_int(1, "autos_slider"), 1, 5, 1)
+		self.visualizer_dynamic_autos = self.vis_sect:checkbox("dynamic mode", g_config:add_bool(true, "dynamic mode"))
+
 		self.visualizer_visualize_q = self.vis_sect:checkbox("Visualize Q", g_config:add_bool(true, "visualize_q"))
 		self.visualizer_visualize_w = self.vis_sect:checkbox("Visualize W", g_config:add_bool(true, "visualize_w"))
 		self.visualizer_visualize_e = self.vis_sect:checkbox("Visualize E", g_config:add_bool(true, "visualize_e"))
 		self.visualizer_visualize_r = self.vis_sect:checkbox("Visualize R", g_config:add_bool(true, "visualize_r"))
 		self.visualizer_show_text = self.vis_sect:checkbox("Show text", g_config:add_bool(true, "visualizer_show_text"))
+
 	end,
+	
 	render_damage_bar = function(self, enemy, combodmg, aadmg, qdmg, wdmg, edmg, rdmg, bar_height, yOffset)
 		yOffset = yOffset or 0
 		local screen = g_render:get_screensize()
@@ -2121,12 +2320,16 @@ local visualizer = class({
 		local base_y_offset_ratio = 0.002
 		local bar_width = (screen.x * width_offset)
 		local base_position = enemy:get_hpbar_position()
-
+	
 		local base_y_offset = screen.y * base_y_offset_ratio
 
 		base_position.x = base_position.x - bar_width * base_x_offset
-		base_position.y = base_position.y - bar_height * base_y_offset + yOffset
-
+		
+		-- console:log(" offset value:".. yOffset .. " Base Position before offset:".. base_position.y)
+		base_position.y = (base_position.y - bar_height * base_y_offset) + (yOffset)
+		local base_y_with_offset = (base_position.y - bar_height * base_y_offset) + (yOffset)
+		-- console:log(" offset value:".. yOffset .. " Base Position after offset:".. base_y_with_offset)
+	
 		local function DrawDamageSection(color, damage, remaining_health)
 			local damage_mod = damage / enemy.max_health
 			local box_start_x = base_position.x + bar_width * remaining_health
@@ -2142,10 +2345,19 @@ local visualizer = class({
 			g_render:filled_box(box_start, box_size, color)
 			return remaining_health - damage_mod
 		end
-
+	
 		local remaining_health = enemy.health / enemy.max_health
 		if combodmg > 0 then
-			remaining_health = DrawDamageSection(self.util.Colors.transparent.purple, combodmg, remaining_health)
+			-- if kill colors
+			if self.visualizer_killable_colors:get_value() then
+				if enemy.health < combodmg  then
+					remaining_health = DrawDamageSection(self.util.Colors.transparent.red, combodmg, remaining_health)
+				else
+					remaining_health = DrawDamageSection(self.util.Colors.transparent.darkGreen, combodmg, remaining_health)
+				end
+			else	
+				remaining_health = DrawDamageSection(self.util.Colors.transparent.purple, combodmg, remaining_health)
+			end
 		end
 		if aadmg > 0 then
 			remaining_health = DrawDamageSection(self.util.Colors.transparent.green, aadmg, remaining_health)
@@ -2216,7 +2428,7 @@ local visualizer = class({
 		if self.visualizer_split_colors:get_value() then
 			self:render_damage_bar(enemy, 0, aadmg, qdmg, wdmg, edmg, rdmg, bar_height, 0)
 		else
-			self:render_damage_bar(enemy, combodmg, aadmg, qdmg, wdmg, edmg, rdmg, bar_height, 0)
+			self:render_damage_bar(enemy, combodmg, 0, 0, 0, 0, 0, bar_height, 0)
 		end
 	end,
 	display_killable_text = function(self, enemy, nmehp, aadmg, qdmg, wdmg, edmg, rdmg)
@@ -2278,15 +2490,26 @@ local visualizer = class({
 		end
 	end,
 	get_damage_array = function(self, enemy)
-		
+	
 		local base_auto_dmg = self.damagelib:calc_aa_dmg(g_local, enemy)
 		local aadmg = 0
 		local qdmg = 0
 		local wdmg = 0
 		local edmg = 0
 		local rdmg = 0
-		local aadmg = base_auto_dmg * self.visualizer_autos_slider:get_value()
-		-- if is
+	
+		-- Introduce the dynamic auto attack calculation
+		local num_autos = self.visualizer_autos_slider:get_value()
+		if self.visualizer_dynamic_autos:get_value() then 
+			local distance = self.vec3_util:distance(g_local.position, enemy.position)
+			local slope = 0.001538
+			num_autos = 3 + slope * (distance - 850)
+		end
+	
+		-- Calculate the total auto damage based on the number of autos
+		local aadmg = base_auto_dmg * num_autos
+	
+		-- Calculate damage for other abilities
 		if self.objects:can_cast(e_spell_slot.q) then
 			qdmg = self.damagelib:calc_spell_dmg("Q", g_local, enemy, 1, self.objects:get_spell_level(e_spell_slot.q))
 		end
@@ -2299,8 +2522,10 @@ local visualizer = class({
 		if self.objects:can_cast(e_spell_slot.r) then
 			rdmg = self.damagelib:calc_spell_dmg("R", g_local, enemy, 1, self.objects:get_spell_level(e_spell_slot.r))
 		end
+	
 		return aadmg, qdmg, wdmg, edmg, rdmg
 	end,
+	
 	Visualize_damage = function(self, enemy)
 		local nmehp = enemy.health
 		local aadmg, qdmg, wdmg, edmg, rdmg = self:get_damage_array(enemy)
@@ -2477,11 +2702,11 @@ local x = class({
 	database = database:new(xHelper),
 	objects = objects:new(xHelper, math, database, util),
 	damagelib = damagelib:new(xHelper, math, database, buffcache),
-	visualizer = visualizer:new(util, xHelper, math, objects, damagelib),
-	debug = debug:new(util),
-	target_selector = target_selector:new(xHelper, math, objects, damagelib),
 	vec2_util = vec2Util,
 	vec3_util = vec3Util,
+	visualizer = visualizer:new(util, vec3Util, xHelper, math, objects, damagelib),
+	debug = debug:new(util),
+	target_selector = target_selector:new(xHelper, math, objects, damagelib),
 
 	init = function(self)
 		print("=-=--=-=-=-=-==-=--==-=-=--=-==--==-=--=-=--=-=--=-=--=-=--=-=--=-=--=-=--=-=--=-=--=-")
