@@ -3132,6 +3132,10 @@ local x = class({
 			self.utils:reevaluate(e)
 		end)
 
+		cheat.on("features.orbwalker", function(e)
+			self.utils:deny_turret_harass(e)
+		end)
+
 	end,
 
 })
