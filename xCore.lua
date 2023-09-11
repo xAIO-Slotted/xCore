@@ -1,4 +1,4 @@
-XCORE_VERSION = "1.1.6"
+XCORE_VERSION = "1.1.7"
 XCORE_LUA_NAME = "xCore.lua"
 XCORE_REPO_BASE_URL = "https://raw.githubusercontent.com/xAIO-Slotted/xCore/main/"
 XCORE_REPO_SCRIPT_PATH = XCORE_REPO_BASE_URL .. XCORE_LUA_NAME
@@ -100,13 +100,13 @@ local e_key = {
 
 local mode = {
 	Combo_key = 1,
-	Harass_key = 2,
+	Harass_key = 4,
 	Clear_key = 3,
-	Lasthit = 4,
-	Freeze = 5,
-	Flee = 6,
+	Lasthit = 2,
+	Freeze = 7,
+	Flee = 5,
 	Idle_key = 0,
-	Recalling = 0
+	Recalling = 6
 }
 
 local chance_strings = {
@@ -279,23 +279,23 @@ end
 
 --- @class vec3Util
 --- @field print fun(self:vec3Util, point:Vec3):nil
---- @field rotate fun(self:vec3Util, origin:Vec3, point:Vec3, angle:number):Vec3
---- @field translate fun(self:vec3Util, origin:Vec3, offsetX:number, offsetZ:number):Vec3
---- @field translateX fun(self:vec3Util, origin:Vec3, offsetX:number):Vec3
---- @field translateZ fun(self:vec3Util, origin:Vec3, offsetZ:number):Vec3
---- @field drawCircle fun(self:vec3Util, origin:Vec3, color:Color, radius:number):nil
---- @field drawCircleFull fun(self:vec3Util, origin:Vec3, color:Color, radius:number):nil
---- @field drawLine fun(self:vec3Util, origin:Vec3, destination:Vec3, color:Color):nil
+--- @field rotate fun(self:vec3Util, position:Vec3, point:Vec3, angle:number):Vec3
+--- @field translate fun(self:vec3Util, position:Vec3, offsetX:number, offsetZ:number):Vec3
+--- @field translateX fun(self:vec3Util, position:Vec3, offsetX:number):Vec3
+--- @field translateZ fun(self:vec3Util, position:Vec3, offsetZ:number):Vec3
+--- @field drawCircle fun(self:vec3Util, position:Vec3, color:Color, radius:number):nil
+--- @field drawCircleFull fun(self:vec3Util, position:Vec3, color:Color, radius:number):nil
+--- @field drawLine fun(self:vec3Util, position:Vec3, destination:Vec3, color:Color):nil
 --- @field drawBox fun(self:vec3Util, start_pos:Vec3, end_pos:Vec3, width:number, color:Color, thickness:number):nil
 local vec3Util = class({
 	print = function(self, point)
 		print("x: " .. point.x .. " y: " .. point.y .. " z: " .. point.z)
 	end,
 
-	rotate = function(self, origin, point, angle)
+	rotate = function(self, position, point, angle)
 		local angle = angle * (math.pi / 180)
-		local rotatedX = math.cos(angle) * (point.x - origin.x) - math.sin(angle) * (point.z - origin.z) + origin.x
-		local rotatedZ = math.sin(angle) * (point.x - origin.x) + math.cos(angle) * (point.z - origin.z) + origin.z
+		local rotatedX = math.cos(angle) * (point.x - position.x) - math.sin(angle) * (point.z - position.z) + position.x
+		local rotatedZ = math.sin(angle) * (point.x - position.x) + math.cos(angle) * (point.z - position.z) + position.z
 		return vec3:new(rotatedX, point.y, rotatedZ)
 	end,
 	distance = function(self, start_point, end_point)
@@ -309,22 +309,98 @@ local vec3Util = class({
 		
 		local distance_squared = dx*dx + dy*dy + dz*dz
 		return std_math.sqrt(distance_squared)
-	end
-	,
-	translate = function(self, origin, offsetX, offsetZ)
-		local translatedX = origin.x + offsetX
-		local translatedZ = origin.z + offsetZ
-		return vec3:new(translatedX, origin.y, translatedZ)
+	end,
+	extend = function (self, v1, v2, dist)
+		local dx = v2.x - v1.x
+		local dy = v2.y - v1.y
+		local dz = v2.z - v1.z
+		local length = std_math.sqrt(dx * dx + dy * dy + dz * dz)
+		
+
+		-- Check if length is zero to avoid division by zero
+		if length == 0 then
+			return vec3:new(v1.x,v1.y,v1.z)
+		end
+		local scale = dist / length
+		local _x = v1.x + dx * scale
+		local _y = v1.y + dy * scale
+		local _z = v1.z + dz * scale
+		local ret = vec3:new(_x, _y, _z)
+
+		return ret
+		
+	end,
+	subtract = function(self, v1, v2)
+		local x = v1.x - v2.x
+		local y = v1.y - v2.y
+		local z = v1.z - v2.z
+		return vec3:new(x, y, z)
+	end,
+	doesLineIntersectCircle = function (self, line_start, line_end, circle_center, circle_radius)
+		local dx = line_end.x - line_start.x
+		local dy = line_end.y - line_start.y
+	
+		local a = dx * dx + dy * dy
+		local b = 2 * (dx * (line_start.x - circle_center.x) + dy * (line_start.y - circle_center.y))
+		local c = (line_start.x - circle_center.x) * (line_start.x - circle_center.x) + 
+				  (line_start.y - circle_center.y) * (line_start.y - circle_center.y) - 
+				  circle_radius * circle_radius
+	
+		local discriminant = b * b - 4 * a * c
+		if discriminant < 0 then
+			return false, nil
+		else
+			local t1 = (-b - math.sqrt(discriminant)) / (2 * a)
+			
+			local intersection = {
+				x = line_start.x + t1 * dx,
+				y = line_start.y + t1 * dy,
+				z = line_start.z -- Assuming z remains the same. Adjust if needed.
+			}
+			local intersectionVec3 = vec3:new(intersection.x, intersection.y, intersection.z)
+	
+			return true, intersectionVec3
+		end
+	end,
+	isPointInsideCircle = function(self, point, circle_center, circle_radius)
+		local dx = point.x - circle_center.x
+		local dy = point.y - circle_center.y
+		
+		return (dx * dx + dy * dy) <= circle_radius * circle_radius
+	end,
+	normalize = function(self, v)
+		local dx = v.x
+		local dy = v.y
+		local dz = v.z
+		local length = math.sqrt(dx * dx + dy * dy + dz * dz)
+		
+		-- Check if length is zero to avoid division by zero
+		if length == 0 then
+			return {
+				x = 0,
+				y = 0,
+				z = 0
+			}
+		end
+		local x = dx / length
+		local y = dy / length
+		local z =  dz / length
+		return vec3:new(x, y, z)
+	end,
+	translate = function(self, position, offsetX, offsetZ)
+		local translatedX = position.x + offsetX
+		local translatedZ = position.z + offsetZ
+		return vec3:new(translatedX, position.y, translatedZ)
 	end,
 
-	translateX = function(self, origin, offsetX)
-		local translatedX = origin.x + offsetX
-		return vec3:new(translatedX, origin.y, origin.z)
+	translateX = function(self, position, offsetX)
+		local translatedX = position.x + offsetX
+		return vec3:new(translatedX, position.y, position.z)
 	end,
 
-	translateZ = function(self, origin, offsetZ)
-		local translatedZ = origin.z + offsetZ
-		return vec3:new(origin.x, origin.y, translatedZ)
+	translateZ = function(self, position, offsetZ)
+		local translatedZ = position.z + offsetZ
+		return vec3:new(position.x, position.y, translatedZ)
 	end,
 	project_vector_on_segment = function(self, v1, v2, v)
 		local cx, cy, ax, ay, bx, by = v.x, v.z, v1.x, v1.z, v2.x, v2.z
@@ -352,16 +428,16 @@ local vec3Util = class({
 		return false
 	end,
 
-	drawCircle = function(self, origin, color, radius)
-		g_render:circle_3d(origin, color, radius, 2, 100, 2)
+	drawCircle = function(self, position, color, radius)
+		g_render:circle_3d(position, color, radius, 2, 100, 2)
 	end,
 
-	drawCircleFull = function(self, origin, color, radius)
-		g_render:circle_3d(origin, color, radius, 3, 100, 2)
+	drawCircleFull = function(self, position, color, radius)
+		g_render:circle_3d(position, color, radius, 3, 100, 2)
 	end,
 
-	drawLine = function(self, origin, destination, color)
-		g_render:line_3d(origin, destination, color, 2)
+	drawLine = function(self, position, destination, color)
+		g_render:line_3d(position, destination, color, 2)
 	end,
 
 	drawBox = function(self, start_pos, end_pos, width, color, thickness)
@@ -388,6 +464,11 @@ local vec3Util = class({
 		g_render:line_3d(p1, p3, color, thickness)
 		g_render:line_3d(p2, p4, color, thickness)
 	end,
+	drawText = function(self, text, position, color, size)
+		if position:to_screen() then
+			g_render:text(position:to_screen(), color, tostring(text), font, size)
+		end
+	end,
 })
 
 --------------------------------------------------------------------------------
@@ -398,51 +479,51 @@ local vec3Util = class({
 
 --- @class vec2Util
 --- @field print fun(self:vec2Util, point:Vec2):nil
---- @field rotate fun(self:vec2Util, origin:Vec2, point:Vec2, angle:number):Vec2
---- @field translate fun(self:vec2Util, origin:Vec2, offsetX:number, offsetY:number):Vec2
---- @field translateX fun(self:vec2Util, origin:Vec2, offsetX:number):Vec2
---- @field translateY fun(self:vec2Util, origin:Vec2, offsetY:number):Vec2
---- @field drawCircle fun(self:vec2Util, origin:Vec2, color:Color, radius:number):nil
---- @field drawLine fun(self:vec2Util, origin:Vec2, destination:Vec2, color:Color):nil
+--- @field rotate fun(self:vec2Util, position:Vec2, point:Vec2, angle:number):Vec2
+--- @field translate fun(self:vec2Util, position:Vec2, offsetX:number, offsetY:number):Vec2
+--- @field translateX fun(self:vec2Util, position:Vec2, offsetX:number):Vec2
+--- @field translateY fun(self:vec2Util, position:Vec2, offsetY:number):Vec2
+--- @field drawCircle fun(self:vec2Util, position:Vec2, color:Color, radius:number):nil
+--- @field drawLine fun(self:vec2Util, position:Vec2, destination:Vec2, color:Color):nil
 --- @field drawBox fun(self:vec2Util, start_pos:Vec2, end_pos:Vec2, width:number, color:Color, thickness:number):nil
 local vec2Util = class({
 	print = function(self, point)
 		print("x: " .. point.x .. " y: " .. point.y)
 	end,
 
-	rotate = function(self, origin, point, angle)
+	rotate = function(self, position, point, angle)
 		local angle = angle * (math.pi / 180)
-		local rotatedX = math.cos(angle) * (point.x - origin.x) - math.sin(angle) * (point.y - origin.y) + origin.x
-		local rotatedY = math.sin(angle) * (point.x - origin.x) + math.cos(angle) * (point.y - origin.y) + origin.y
+		local rotatedX = math.cos(angle) * (point.x - position.x) - math.sin(angle) * (point.y - position.y) + position.x
+		local rotatedY = math.sin(angle) * (point.x - position.x) + math.cos(angle) * (point.y - position.y) + position.y
 		return vec3:new(rotatedX, rotatedY)
 	end,
 
-	translate = function(self, origin, offsetX, offsetY)
-		local translatedX = origin.x + offsetX
-		local translatedY = origin.y + offsetY
+	translate = function(self, position, offsetX, offsetY)
+		local translatedX = position.x + offsetX
+		local translatedY = position.y + offsetY
 		return vec2:new(translatedX, translatedY)
 	end,
 
-	translateX = function(self, origin, offsetX)
-		local translatedX = origin.x + offsetX
-		return vec2:new(translatedX, origin.y)
+	translateX = function(self, position, offsetX)
+		local translatedX = position.x + offsetX
+		return vec2:new(translatedX, position.y)
 	end,
 
-	translateY = function(self, origin, offsetY)
-		local translatedY = origin.y + offsetY
-		return vec2:new(origin.x, translatedY)
+	translateY = function(self, position, offsetY)
+		local translatedY = position.y + offsetY
+		return vec2:new(position.x, translatedY)
 	end,
 
-	drawCircle = function(self, origin, color, radius)
-		g_render:circle(origin, color, radius, 100)
+	drawCircle = function(self, position, color, radius)
+		g_render:circle(position, color, radius, 100)
 	end,
 
-	drawFullCircle = function(self, origin, color, radius)
-		g_render:filled_circle(origin, color, radius, 100)
+	drawFullCircle = function(self, position, color, radius)
+		g_render:filled_circle(position, color, radius, 100)
 	end,
 
-	drawLine = function(self, origin, destination, color)
-		g_render:line(origin, destination, color, 2)
+	drawLine = function(self, position, destination, color)
+		g_render:line(position, destination, color, 2)
 	end,
 
 	drawBox = function(self, start, size, color)
@@ -693,6 +774,55 @@ local objects = class({
 		self.math = math
 		self.database = database
 		self.util = util
+	end,
+	get_ordered_turret_targets = function(self, turret, minions)
+		local turret_prio_list = {}
+		local priority = {
+			[3] = 1,  -- Siege Minions
+			[2] = 2,  -- Melee Minions
+			[1] = 3   -- Ranged Minions
+			-- If Super Minions have a different priority, adjust here.
+			-- Currently, Super Minions (4) will be at the end due to the default sorting mechanism.
+		}
+	
+		for i, unit in ipairs(minions) do
+			local dist = turret.position:dist_to(unit.position)	
+			table.insert(turret_prio_list, {
+				minion = unit,
+				distance = dist,
+				prio = priority[unit.minion_type] or 4  -- defaults to 4 (lowest priority) if minion_type not in priority table
+			})
+		end
+	
+		-- Custom sort function
+		table.sort(turret_prio_list, function(a, b)
+			if a.prio == b.prio then
+				return a.distance < b.distance
+			end
+			return a.prio < b.prio
+		end)
+	
+		-- Extracting the sorted minions from the list
+		local sorted_minions = {}
+		for _, entry in ipairs(turret_prio_list) do
+			table.insert(sorted_minions, entry.minion)
+		end
+	
+		return sorted_minions
+	end,
+	get_minion_type = function (self, obj_min)
+		local object_name = obj_min:get_object_name():lower()
+		-- if string.find(object_name, "raned") 
+		-- types are ranged 1, melee 2, siege 3
+		-- lets return the number
+		if string.find(object_name, "siege") then
+			return 3
+		elseif string.find(object_name, "ranged") then
+			return 1
+		else
+			return 2
+		end
+		return 0
 	end,
 	get_current_target_of_slot = function(self, slots, unit)
 		unit = unit or g_local
@@ -950,6 +1080,63 @@ local xHelper = class({
 
 	init = function(self, buffcache)
 		self.buffcache = buffcache
+	end,
+	is_under_turret = function(self,pos, enemy_only)
+		enemy_only = enemy_only or true
+		pos = pos or g_local.position
+		local range = 905
+		
+		for _, unit in ipairs(features.entity_list:get_enemy_turrets()) do
+		  if unit  and unit:is_alive() then
+			local dist_away = vec3Util:distance(unit.position, pos)
+			if dist_away < range then return true, unit end
+		  end
+		end
+		if not enemy_only then
+			for _, unit in ipairs(features.entity_list:get_ally_turrets()) do
+				if unit and unit:is_alive() then
+					local dist_away = vec3Util:distance(unit.position, pos)
+					if dist_away < range then return true, unit end
+				  end
+			end
+		end
+
+		return false, nil
+	  end,
+	get_ordered_turret_targets = function(self, turret, minions)
+		local turret_prio_list = {}
+		local priority = {
+			[3] = 1,  -- Siege Minions
+			[2] = 2,  -- Melee Minions
+			[1] = 3   -- Ranged Minions
+			-- If Super Minions have a different priority, adjust here.
+			-- Currently, Super Minions (4) will be at the end due to the default sorting mechanism.
+		}
+	
+		for i, unit in ipairs(minions) do
+			local dist = vec3Util:distance(turret.position, unit.position)
+			table.insert(turret_prio_list, {
+				minion = unit,
+				distance = dist,
+				prio = priority[self.objects:get_minion_type(unit)] or 4  -- defaults to 4 (lowest priority) if minion_type not in priority table
+			})
+		end
+	
+		-- Custom sort function
+		table.sort(turret_prio_list, function(a, b)
+			if a.prio == b.prio then
+				return a.distance < b.distance
+			end
+			return a.prio < b.prio
+		end)
+	
+		-- Extracting the sorted minions from the list
+		local sorted_minions = {}
+		for _, entry in ipairs(turret_prio_list) do
+			table.insert(sorted_minions, entry.minion)
+		end
+	
+		return sorted_minions
 	end,
 	get_mode = function (self)
 		return features.orbwalker:get_mode()
@@ -1964,7 +2151,7 @@ local target_selector = class({
 		if cache and cache.enemies then
 			for i, data in ipairs(cache.enemies) do
 				local target = features.entity_list:get_by_index(data.target.index)
-				if self.draw_target:get_value() and target:is_visible() then
+				if target and self.draw_target:get_value() and target:is_visible() then
 					if i == 1 and not forced then
 						-- g_render:circle_3d(target.position, color:new(255, 0, 0, 55), 100, 3, 55, 1)
 						vec3Util:drawCircleFull(target.position, color:new(255, 0, 0, 55),
@@ -2485,7 +2672,7 @@ local visualizer = class({
 			if killable_text ~= "" then
 				killable_text = killable_text:gsub("^%s*+", "")
 				local killable_pos = vec2:new(pos:to_screen().x, pos:to_screen().y - 80)
-				g_render:text(killable_pos, color:new(255, 255, 255), killable_text, Font, 30)
+				g_render:text(killable_pos, color:new(255, 255, 255), killable_text, font, 30)
 			end
 		end
 	end,
@@ -2685,6 +2872,215 @@ local debug = class({
 
 })
 
+--------------------------------------------------------------------------------
+
+-- utils
+
+--------------------------------------------------------------------------------
+
+local utils = class({
+	XutilMenuCat = nil,
+	add = menu.get_main_window():push_navigation("xUtils", 10000),
+	nav = menu.get_main_window():find_navigation("xUtils"),
+	dancing = false,
+	top = nil,
+	mid = nil,
+	bot = nil,
+
+	init = function(self,vec3_util, util, xHelper, math, objects, damagelib, debug, permashow, target_selector)
+		self.helper = xHelper
+		self.math = math
+		self.util = util
+		self.damagelib = damagelib
+		self.objects = objects
+		self.debug = debug
+		self.permashow = permashow
+		self.vec3_util = vec3_util
+		self.target_selector = target_selector
+		self.dancing = false
+		self.new_click = nil
+		self.cancel = true
+		-- -- Menus -- -- 
+		-- add menu for xUtils sect
+
+			
+		self.nav = menu.get_main_window():find_navigation("xUtils")
+		self.anti_turret_walker = self.nav:add_section("anti turret walker")
+		self.checkboxAntiTurretTechGlobal = self.anti_turret_walker:checkbox("deny turret walking in turret aggro", g_config:add_bool(false, "deny_turret_walking"))
+		self.checkboxAntiTurretTechHarass = self.anti_turret_walker:checkbox("^ in harass", g_config:add_bool(true, "deny_turret_walking_harass"))
+		self.checkboxAntiTurretTechCombo = self.anti_turret_walker:checkbox("^ in combo", g_config:add_bool(false, "deny_turret_walking_combo"))
+
+		-- draw turret prio
+		self.other = self.nav:add_section("misc")
+
+		self.checkboxDrawTurretPrio = self.anti_turret_walker:checkbox("draw turret prio", g_config:add_bool(true, "draw_turret_prio")) 
+
+	end,
+	clear = function(self)
+			features.orbwalker:allow_movement(true)
+			self.dancing = false
+			return false 
+	end,
+	force_move = function(self)
+		if self.dancing and self.new_click then
+			-- Prints("lol ill fix it -->",1)
+			g_input:issue_order_move(self.new_click)
+		end
+	end,
+	deny_turret_harass = function(self, e)
+		local ai_man = g_local:get_ai_manager()
+		local path = g_local:get_ai_manager().path
+
+		if not get_menu_val(self.checkboxAntiTurretTechGlobal) then return false end
+		-- self.new_click = nil
+		local bad_turret = nil
+		local under_pos = nil
+		local mouse_pos = ai_man.path_end
+
+		if path then 
+			for _, pos in ipairs(path) do
+				local should_deny_turret =
+				(get_menu_val(self.checkboxAntiTurretTechGlobal) and not get_menu_val(self.checkboxAntiTurretTechHarass) and not get_menu_val(self.checkboxAntiTurretTechCombo)) or
+				(get_menu_val(self.checkboxAntiTurretTechHarass) and self.helper:get_mode() == mode.Harass_key) or
+				(get_menu_val(self.checkboxAntiTurretTechCombo) and self.helper:get_mode() == mode.Combo_key)
+
+				-- if pos is under turret and mode is harass redirect click outside of turret range using exttend 
+				if pos and should_deny_turret then
+					local isunder, turret = self.helper:is_under_turret(pos)	
+					if isunder and turret and  g_local.position:dist_to(turret.position) < 1200 then
+						Prints("ya it's under turret",1)
+						under_pos = pos
+						bad_turret = turret
+						break  
+					else
+						-- Prints("not under turret",1)
+					end
+				end
+			end
+		end
+		if under_pos and bad_turret then 
+			--allow move false 
+			features.orbwalker:allow_movement(false)
+			self.new_click = self.vec3_util:extend(bad_turret.position, under_pos, 950)
+			self.dancing = true
+			Prints("assigned dancing, assign new click, disabled orb",1)
+		else
+			-- Prints("not under turret",1)
+			-- features.orbwalker:allow_movement(true)
+			-- self.dancing = false
+		end
+	end,
+	reevaluate = function(self, e)
+		-- if features.orbwalker:can_move() then return false end
+
+		local ai_man = g_local:get_ai_manager()
+		local path = g_local:get_ai_manager().path
+		local bad_turret = nil
+		local under_pos = nil
+		local should_deny_turret =
+		(get_menu_val(self.checkboxAntiTurretTechGlobal) and not get_menu_val(self.checkboxAntiTurretTechHarass) and not get_menu_val(self.checkboxAntiTurretTechCombo)) or
+		(get_menu_val(self.checkboxAntiTurretTechHarass) and self.helper:get_mode() == mode.Harass_key) or
+		(get_menu_val(self.checkboxAntiTurretTechCombo) and self.helper:get_mode() == mode.Combo_key)
+
+		if not should_deny_turret then 
+			self:clear()
+		end
+
+		if path then 
+			for _, pos in ipairs(path) do
+				-- if pos is under turret and mode is harass redirect click outside of turret range using exttend 
+				if pos and should_deny_turret then
+					local isunder, turret = self.helper:is_under_turret(pos)	
+					bad_turret = turret
+					if isunder and turret and  g_local.position:dist_to(turret.position) < 1200 then
+						self.new_click = vec3Util:extend(turret.position, pos, 1000)
+						break  
+					else
+					end
+				else
+					self:clear()
+				end
+			end
+		end
+		
+		
+		if (under_pos and bad_turret) or (self.helper:is_under_turret(ai_man.path_end)) then 
+			
+			local turret_pos = bad_turret.position
+			local radius = 930
+			
+			local line_start = ai_man.path_start
+			local line_end = ai_man.path_end
+
+
+			--does this line intersect with the circle?
+			local does_intersect,intersect_point = self.vec3_util:doesLineIntersectCircle(line_start, line_end, turret_pos, radius)
+			if does_intersect then
+				if not self.vec3_util:isPointInsideCircle(line_start, turret_pos, radius) then
+					e:cancel()
+				end
+				
+				self.new_click = self.vec3_util:extend(g_local.position, intersect_point, 1000)
+				--stop orb
+				features.orbwalker:allow_movement(false)
+				--move
+				g_input:issue_order_move(self.new_click)
+			end
+		else
+			self:clear()
+		end
+
+	end,
+	draw = function (self)	
+		local ai_man = g_local:get_ai_manager()
+		local path_end = ai_man.path_end
+		if ai_man and path_end then 
+			for _, pos in ipairs(ai_man.path) do 
+				self.vec3_util:drawCircleFull(pos, self.util.Colors.solid.red, 7)
+			end
+			self.vec3_util:drawCircleFull(path_end, self.util.Colors.solid.red, 35)
+		end
+		if self.new_click and self.dancing then
+			--ai man
+
+			self.vec3_util:drawCircleFull(self.new_click, self.util.Colors.solid.blue, 35)
+
+			--draw a line from me to mid
+			self.vec3_util:drawLine(g_local.position, self.new_click, self.util.Colors.solid.green, 2)
+			-- self:clear()
+
+	  	end
+		-- if turret prio
+
+		if self.checkboxDrawTurretPrio:get_value() then	
+			for _, v in ipairs(features.entity_list:get_ally_turrets()) do
+				local turret = v
+				-- print turret dist to me and my attack range
+				  
+				if v and not v:is_dead() and not v:is_invisible() then 
+					local dist = g_local.position:dist_to(turret.position)
+					local myatkrange = g_local.attack_range+350
+					-- Prints("dist: " .. std_math.floor(dist) .. "/" .. myatkrange, 1)	
+				end
+				if turret and turret.position and turret.position:dist_to(g_local.position) < g_local.attack_range+350 then
+				  local minions = self.objects:get_enemy_minions(860, turret.position)
+				  if #minions > 0 then 
+					local sorted = self.objects:get_ordered_turret_targets(turret, minions)
+					for i, minion in ipairs(sorted) do
+				
+					  self.vec3_util:drawText(i, minion.position, util.Colors.solid.lightCyan, 30)
+					end
+				  end
+				end
+			  end
+		end
+		
+	end
+
+
+
+})
+
 
 --------------------------------------------------------------------------------
 
@@ -2694,6 +3090,8 @@ local debug = class({
 
 local x = class({
 	VERSION = "1.0",
+	vec2_util = vec2Util,
+	vec3_util = vec3Util,
 	util = util:new(),
 	permashow = permashow:new(),
 	buffcache = buffcache:new(),
@@ -2702,13 +3100,13 @@ local x = class({
 	database = database:new(xHelper),
 	objects = objects:new(xHelper, math, database, util),
 	damagelib = damagelib:new(xHelper, math, database, buffcache),
-	vec2_util = vec2Util,
-	vec3_util = vec3Util,
 	visualizer = visualizer:new(util, vec3Util, xHelper, math, objects, damagelib),
 	debug = debug:new(util),
 	target_selector = target_selector:new(xHelper, math, objects, damagelib),
+	utils = utils:new(vec3Util, util, xHelper, math, objects, damagelib, debug, permashow, target_selector),
 
 	init = function(self)
+		features.orbwalker:allow_movement(true)
 		print("=-=--=-=-=-=-==-=--==-=-=--=-==--==-=--=-=--=-=--=-=--=-=--=-=--=-=--=-=--=-=--=-=--=-")
 		local idk = self.damagelib ~= nil
 		print("X core loaded: " .. tostring(idk))
@@ -2723,11 +3121,17 @@ local x = class({
 			self.debug:draw()
 			self.target_selector:draw()
 			self.visualizer:draw()
+			self.utils:draw()
 		end)
 
 		cheat.on("features.run", function()
 			self.permashow:tick()
+			self.utils:force_move()
 		end)
+		cheat.on("local.issue_order_move", function(e)
+			self.utils:reevaluate(e)
+		end)
+
 	end,
 
 })
