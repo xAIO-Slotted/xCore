@@ -3034,12 +3034,12 @@ local utils = class({
 	draw = function (self)	
 		local ai_man = g_local:get_ai_manager()
 		local path_end = ai_man.path_end
-		if ai_man and path_end then 
-			for _, pos in ipairs(ai_man.path) do 
-				self.vec3_util:drawCircleFull(pos, self.util.Colors.solid.red, 7)
-			end
-			self.vec3_util:drawCircleFull(path_end, self.util.Colors.solid.red, 35)
-		end
+		-- if ai_man and path_end then 
+		-- 	for _, pos in ipairs(ai_man.path) do 
+		-- 		self.vec3_util:drawCircleFull(pos, self.util.Colors.solid.red, 7)
+		-- 	end
+		-- 	self.vec3_util:drawCircleFull(path_end, self.util.Colors.solid.red, 35)
+		-- end
 		if self.new_click and self.dancing then
 			--ai man
 
