@@ -1,4 +1,4 @@
-XCORE_VERSION = "1.2.0"
+XCORE_VERSION = "1.2.1"
 XCORE_LUA_NAME = "xCore.lua"
 XCORE_REPO_BASE_URL = "https://raw.githubusercontent.com/xAIO-Slotted/xCore/main/"
 XCORE_REPO_SCRIPT_PATH = XCORE_REPO_BASE_URL .. XCORE_LUA_NAME
@@ -3012,7 +3012,7 @@ local utils = class({
 
 		self.anti_wall_flash = self.safety_sec:checkbox("stop flash fails", g_config:add_bool(true, "anti_wall_flash"))
 		self.anti_short_flash = self.safety_sec:checkbox("auto extend flash", g_config:add_bool(true, "anti_short_flash"))
-		self.safe_flash_key = self.safety_sec:slider_int("Flash key [DEFAULT: U, 85]:", g_config:add_int(85, "safe_flash_key"), 0, 179, 1)
+		self.safe_flash_key = self.safety_sec:slider_int("Flash key [D --> F]:", g_config:add_int(70, "safe_flash_key"), 68, 70, 2)
 
 		-- draw turret prio
 		self.other = self.nav:add_section("misc")
@@ -3031,6 +3031,36 @@ local utils = class({
             self.midpoint = nil
             self.new_click = nil
 			return false 
+	end,
+	safe_flash = function(self)
+		if not (get_menu_val(self.anti_wall_flash) or get_menu_val(self.anti_short_flash))  then return false end
+
+		if g_input:is_key_pressed(get_menu_val(self.safe_flash_key)) then
+			local flash_string = "SummonerFlash"
+			local spell_book = g_local:get_spell_book()
+			local slot = e_spell_slot.d
+			local spell = spell_book:get_spell_slot(slot)
+		
+			if not (spell:get_name() == flash_string) then
+			  slot = e_spell_slot.f
+			end
+			
+			local fail = g_navgrid:is_wall(g_input:get_cursor_position_game())  or g_navgrid:is_building(g_input:get_cursor_position_game())
+			if get_menu_val(self.anti_wall_flash) and fail then
+				Prints("Prevented flashing into wall or building", 2)
+				
+				return false
+			end
+			
+			local cast_location = g_input:get_cursor_position_game()
+
+			if get_menu_val(self.anti_short_flash) then
+				Prints("Cast extended flash", 2)
+				cast_location =  self.vec3_util:extend(g_local.position, cast_location, 800)	
+			end
+			g_input:cast_spell(slot, cast_location)
+		end
+
 	end,
 	force_move = function(self)
 
@@ -3255,6 +3285,7 @@ local x = class({
 		cheat.on("features.run", function()
 			self.permashow:tick()
 			self.utils:force_move()
+			self.utils:safe_flash()
 		end)
         cheat.on("local.issue_order_move", function(e)
 			self.utils:cancel_move(e)
@@ -3262,9 +3293,7 @@ local x = class({
 		cheat.on("features.orbwalker", function(e)
 			self.utils:deny_turret_harass(e)
 		end)
-		cheat.on("local.cast_spell", function(e)
-			print("attempt to cancel ") e:cancel()
-		end)
+
 
 	end,
 
