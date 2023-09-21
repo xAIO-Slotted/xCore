@@ -3016,7 +3016,7 @@ local utils = class({
 	clear = function(self)
         if not self.dancing then return false end
         
-            Prints("no longer dancing --> allowing movement")
+            -- Prints("no longer dancing --> allowing movement")
 			features.orbwalker:allow_movement(true)
 			self.dancing = false
             self.intersection1 = nil
@@ -3036,14 +3036,14 @@ local utils = class({
                 local path_end = g_input:get_cursor_position_game()
                 if not self.vec3_util:isPointInsideCircle(path_end, turret_pos, radius-40) then
                     
-                    Prints("path end not in thing anymore but still dancing wild")
+                    -- Prints("path end not in thing anymore but still dancing wild")
                     self:clear()
                 end
             end
             -- apm limiter is the last time we clicked, if we clicked recently then dont click again
             if g_time - self.apm_limiter < 00.5 then Prints("apm skip") return false end
             self.apm_limiter = g_time
-			Prints("force moving to a new click",1)
+			-- Prints("force moving to a new click",1)
             if self.new_click then g_input:issue_order_move(self.new_click) end
 		end
 	end,
@@ -3059,7 +3059,7 @@ local utils = class({
             local path_end = ai_man.path_end
 
             if should_deny_turret and g_local.position and self.bad_turret.position and self.vec3_util:distance(g_local.position, self.bad_turret.position) < 950 and self.helper:is_under_turret(path_end) then
-                Prints("canceling move")
+                -- Prints("canceling move")
                 e:cancel()
             end
         end
@@ -3084,7 +3084,7 @@ local utils = class({
         
         if not should_deny_turret  or self.vec3_util:distance(g_local.position, turret_pos) > 1000 then 
             if self.dancing then
-                Prints("should not deny and not dancing so...")
+                -- Prints("should not deny and not dancing so...")
                 self:clear()
             end
             return false 
