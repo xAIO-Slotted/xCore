@@ -1,4 +1,4 @@
-XCORE_VERSION = "1.1.7"
+XCORE_VERSION = "1.1.8"
 XCORE_LUA_NAME = "xCore.lua"
 XCORE_REPO_BASE_URL = "https://raw.githubusercontent.com/xAIO-Slotted/xCore/main/"
 XCORE_REPO_SCRIPT_PATH = XCORE_REPO_BASE_URL .. XCORE_LUA_NAME
@@ -6,7 +6,7 @@ local std_math = math
 
 --------------------------------------------------------------------------------
 
-local font = 'corbel'
+local font = 'Corbel'
 
 local e_key = {
 	lbutton = 1,
@@ -336,68 +336,161 @@ local vec3Util = class({
 		local z = v1.z - v2.z
 		return vec3:new(x, y, z)
 	end,
+    midpoint = function(self, v1, v2)
+        local x = (v1.x + v2.x) / 2
+        local y = (v1.y + v2.y) / 2
+        local z = (v1.z + v2.z) / 2
+        return vec3:new(x, y, z)
+    end,
+    normalize = function(self, v)
+        local dx = v.x
+        local dy = v.y
+        local dz = v.z
+        local length = math.sqrt(dx * dx + dy * dy + dz * dz)
+        
+        -- Check if length is zero to avoid division by zero
+        if length == 0 then
+            return {
+                x = 0,
+                y = 0,
+                z = 0
+            }
+        end
+        local x = dx / length
+        local y = dy / length
+        local z =  dz / length
+        return vec3:new(x, y, z)
+    end,
+    translate = function(self, position, offsetX, offsetZ)
+        local translatedX = position.x + offsetX
+        local translatedZ = position.z + offsetZ
+        return vec3:new(translatedX, position.y, translatedZ)
+    end,
+    avoid_circle_by_closest_tangent = function(self, start, circle_center, circle_radius, mouse, offset)
+        -- 1. Get both tangent points to the circle from start position
+        local tangent_point_1, tangent_point_2 = self:get_tangent_points(circle_center, circle_radius, start)
+        
+        tangent_point_1 = self:extend(circle_center, tangent_point_1, circle_radius+g_local:get_bounding_radius()+25)
+        tangent_point_2 = self:extend(circle_center, tangent_point_2, circle_radius+g_local:get_bounding_radius()+25)
+        
+        if circle_center then
+            mid = circle_center
+        end
+        
+        if not tangent_point_1 then
+            top = nil
+            return nil
+        end
+        
+        if not tangent_point_2 then
+            bot = nil
+            return nil
+        end
+    
+        -- 2. Check which tangent point is closer to the mouse
+        local dist_to_mouse_from_tangent_1 = self:distance(tangent_point_1, mouse)
+        local dist_to_mouse_from_tangent_2 = self:distance(tangent_point_2, mouse)
+    
+        local closest_tangent_point = tangent_point_1
+        bot = tangent_point_2
+        
+        if dist_to_mouse_from_tangent_2 < dist_to_mouse_from_tangent_1 then
+            closest_tangent_point = tangent_point_2
+            bot = tangent_point_1
+        end
+        top = closest_tangent_point
+        
+        return closest_tangent_point
+    end,
+    get_tangent_points = function(self, center, radius, outside_point)
+        -- Default values
+        center = center or vec3:new(0, 0, 0)
+        radius = radius or 10
+        outside_point = outside_point or vec3:new(15, 0, 15)
+
+        -- Extract coordinates for easier calculations
+        local a, b = outside_point.x, outside_point.z
+        local h, k = center.x, center.z
+        local r = radius
+
+        -- Calculate common terms
+        local d = (a - h)^2 + (b - k)^2
+        local sqrt_term = math.sqrt(d - r^2)
+
+        -- Calculate the coordinates of the tangent points
+        local x1 = ((r^2 * (a - h)) + r * (b - k) * sqrt_term) / d + h
+        local z1 = ((r^2 * (b - k)) - r * (a - h) * sqrt_term) / d + k
+
+        local x2 = ((r^2 * (a - h)) - r * (b - k) * sqrt_term) / d + h
+        local z2 = ((r^2 * (b - k)) + r * (a - h) * sqrt_term) / d + k
+
+        local tangent_point_1 = vec3:new(x1, 0, z1)
+        local tangent_point_2 = vec3:new(x2, 0, z2)
+
+        return tangent_point_1, tangent_point_2
+    end,
 	doesLineIntersectCircle = function (self, line_start, line_end, circle_center, circle_radius)
-		local dx = line_end.x - line_start.x
-		local dy = line_end.y - line_start.y
-	
-		local a = dx * dx + dy * dy
-		local b = 2 * (dx * (line_start.x - circle_center.x) + dy * (line_start.y - circle_center.y))
-		local c = (line_start.x - circle_center.x) * (line_start.x - circle_center.x) + 
-				  (line_start.y - circle_center.y) * (line_start.y - circle_center.y) - 
-				  circle_radius * circle_radius
-	
-		local discriminant = b * b - 4 * a * c
-		if discriminant < 0 then
-			return false, nil
-		else
-			local t1 = (-b - math.sqrt(discriminant)) / (2 * a)
-			
-			local intersection = {
-				x = line_start.x + t1 * dx,
-				y = line_start.y + t1 * dy,
-				z = line_start.z -- Assuming z remains the same. Adjust if needed.
-			}
-			local intersectionVec3 = vec3:new(intersection.x, intersection.y, intersection.z)
-	
-			return true, intersectionVec3
-		end
-	end,
+        local dx = line_end.x - line_start.x
+        local dz = line_end.z - line_start.z
+    
+        local a = dx * dx + dz * dz
+        local b = 2 * (dx * (line_start.x - circle_center.x) + dz * (line_start.z - circle_center.z))
+        local c = (line_start.x - circle_center.x) * (line_start.x - circle_center.x) + 
+                  (line_start.z - circle_center.z) * (line_start.z - circle_center.z) - 
+                  circle_radius * circle_radius
+    
+                  
+        local discriminant = b * b - 4 * a * c
+    
+        local isInsideCircle = function(point)
+            local distSquared = (point.x - circle_center.x) * (point.x - circle_center.x) +
+                                (point.z - circle_center.z) * (point.z - circle_center.z)
+            return distSquared < circle_radius * circle_radius
+        end
+        
+        -- Check if both endpoints are inside the circle
+        if isInsideCircle(line_start) and isInsideCircle(line_end) then
+            -- if they are we need to shove(extend) them towards the outer circle
+            local extendedLineStart = self:extend(circle_center, line_start, circle_radius)
+            local extendedLineEnd = self:extend(circle_center, line_end, circle_radius)
+            
+            return true, extendedLineStart, extendedLineEnd
+        end
+        
+        -- If the discriminant is negative, the line doesn't intersect the circle
+        if discriminant < 0 then
+            return false, nil, nil
+        end
+    
+        local t1 = (-b - math.sqrt(discriminant)) / (2 * a)
+        local t2 = (-b + math.sqrt(discriminant)) / (2 * a)
+        
+        local intersectionVec3_1, intersectionVec3_2 = nil, nil
+    
+        if 0 <= t1 and t1 <= 1 then
+            intersectionVec3_1 = vec3:new(line_start.x + t1 * dx, line_start.y, line_start.z + t1 * dz)
+        end
+    
+        if t1 ~= t2 and 0 <= t2 and t2 <= 1 then
+            intersectionVec3_2 = vec3:new(line_start.x + t2 * dx, line_start.y, line_start.z + t2 * dz)
+        end
+    
+        if intersectionVec3_1 or intersectionVec3_2 then
+            return true, intersectionVec3_1, intersectionVec3_2
+        else
+            return false, nil, nil
+        end
+    end,
 	isPointInsideCircle = function(self, point, circle_center, circle_radius)
 		local dx = point.x - circle_center.x
-		local dy = point.y - circle_center.y
+		local dy = point.z - circle_center.z
 		
 		return (dx * dx + dy * dy) <= circle_radius * circle_radius
 	end,
-	normalize = function(self, v)
-		local dx = v.x
-		local dy = v.y
-		local dz = v.z
-		local length = math.sqrt(dx * dx + dy * dy + dz * dz)
-		
-		-- Check if length is zero to avoid division by zero
-		if length == 0 then
-			return {
-				x = 0,
-				y = 0,
-				z = 0
-			}
-		end
-		local x = dx / length
-		local y = dy / length
-		local z =  dz / length
-		return vec3:new(x, y, z)
-	end,
-	translate = function(self, position, offsetX, offsetZ)
-		local translatedX = position.x + offsetX
-		local translatedZ = position.z + offsetZ
-		return vec3:new(translatedX, position.y, translatedZ)
-	end,
-
 	translateX = function(self, position, offsetX)
 		local translatedX = position.x + offsetX
 		return vec3:new(translatedX, position.y, position.z)
 	end,
-
 	translateZ = function(self, position, offsetZ)
 		local translatedZ = position.z + offsetZ
 		return vec3:new(position.x, position.y, translatedZ)
@@ -412,7 +505,6 @@ local vec3Util = class({
 
 		return {PointSegment = pointSegment, PointLine = pointLine, IsOnSegment = isOnSegment}
 	end,
-
 	is_colliding = function(self, start_pos, end_pos, target, width)
 		for i, enemy in pairs(features.entity_list:get_enemies()) do
 			if  enemy and enemy:is_alive() and target.champion_name.text ~= enemy.champion_name.text then       
@@ -427,19 +519,15 @@ local vec3Util = class({
 		end
 		return false
 	end,
-
 	drawCircle = function(self, position, color, radius)
 		g_render:circle_3d(position, color, radius, 2, 100, 2)
 	end,
-
 	drawCircleFull = function(self, position, color, radius)
 		g_render:circle_3d(position, color, radius, 3, 100, 2)
 	end,
-
 	drawLine = function(self, position, destination, color)
 		g_render:line_3d(position, destination, color, 2)
 	end,
-
 	drawBox = function(self, start_pos, end_pos, width, color, thickness)
 		-- Calculate the direction vector
 		local dir = vec3:new(end_pos.x - start_pos.x, 0, end_pos.z - start_pos.z)
@@ -532,11 +620,8 @@ local vec2Util = class({
 })
 
 --------------------------------------------------------------------------------
-
 -- Utility
-
 --------------------------------------------------------------------------------
-
 --- @class util
 --- @field screen Screen
 --- @field screenX number
@@ -662,14 +747,11 @@ local util = class({
 		["Bot_Lane"] = {x = 12492, y = 51, z = 2306},
 		["Top_Lane"] = {x = 2161, y = 52, z = 12369},
 	},
-
-
 	init = function(self)
 		self.screen = g_render:get_screensize()
 		self.screenX = self.screen.x
 		self.screenY = self.screen.y
 	end,
-
 	textAt = function(self, pos, color, text)
 		g_render:text(pos, color, text, self.font, self.fontSize)
 	end,
@@ -693,11 +775,8 @@ local util = class({
 })
 
 --------------------------------------------------------------------------------
-
 -- Math
-
 --------------------------------------------------------------------------------
-
 local math = class({
 	xHelper = nil,
 	buffcache = nil,
@@ -757,11 +836,8 @@ local math = class({
 })
 
 --------------------------------------------------------------------------------
-
 -- Objects
-
 --------------------------------------------------------------------------------
-
 
 local objects = class({
 	xHelper = nil,
@@ -945,7 +1021,6 @@ local objects = class({
 		local num = #self:get_enemy_champs(range, position) or 0
 		return num
 	end,
-	
 	get_enemy_minions = function(self, range, pos)
 		pos = pos or g_local.position
 		local enemies = {}
@@ -1021,13 +1096,10 @@ local objects = class({
 		local level = unit:get_spell_book():get_spell_slot(slot).level or 0
 		return level
 	end,
-
 })
 
 --------------------------------------------------------------------------------
-
 -- Buffs
-
 --------------------------------------------------------------------------------
 local buffcache = class({
 	get_buff = function(self, unit, name)
@@ -1050,11 +1122,8 @@ local buffcache = class({
 })
 
 --------------------------------------------------------------------------------
-
 -- Helper
-
 --------------------------------------------------------------------------------
-
 local xHelper = class({
 	
 	HYBRID_RANGED = { "Elise", "Gnar", "Jayce", "Kayle", "Nidalee", "Zeri" },
@@ -1076,33 +1145,63 @@ local xHelper = class({
 		["zhonyasringshield"] = true
 	},
 
+    vec3_util = nil,
 	buffcache = nil,
 
-	init = function(self, buffcache)
+	init = function(self,vec3_util, buffcache)
+        self.vec3_util = vec3_util
 		self.buffcache = buffcache
 	end,
 	is_under_turret = function(self,pos, enemy_only)
 		enemy_only = enemy_only or true
 		pos = pos or g_local.position
-		local range = 905
+		local range = 915
 		
 		for _, unit in ipairs(features.entity_list:get_enemy_turrets()) do
 		  if unit  and unit:is_alive() then
-			local dist_away = vec3Util:distance(unit.position, pos)
+			local dist_away = self.vec3_util:distance(unit.position, pos)
 			if dist_away < range then return true, unit end
 		  end
 		end
 		if not enemy_only then
 			for _, unit in ipairs(features.entity_list:get_ally_turrets()) do
 				if unit and unit:is_alive() then
-					local dist_away = vec3Util:distance(unit.position, pos)
+					local dist_away = self.vec3_util:distance(unit.position, pos)
 					if dist_away < range then return true, unit end
 				  end
 			end
 		end
 
 		return false, nil
-	  end,
+	end,
+    get_nearest_turret = function(self, pos, enemy_only)
+        pos = pos or g_local.position
+        enemy_only = enemy_only or true
+        -- get all the turrets
+        -- sort them by distance to pos
+        -- return closest one
+        local turrets = {}
+        enemy_only = enemy_only or true
+        pos = pos or g_local.position
+        
+        for _, unit in ipairs(features.entity_list:get_enemy_turrets()) do
+            if unit  and unit:is_alive() then
+                table.insert(turrets, unit)
+            end
+        end
+        if not enemy_only then
+            for _, unit in ipairs(features.entity_list:get_ally_turrets()) do
+                if unit and unit:is_alive() then
+                    table.insert(turrets, unit)
+                end
+            end
+        end
+        table.sort(turrets, function(a, b)
+            return self.vec3_util:distance(a.position, pos) < self.vec3_util:distance(b.position, pos)
+        end)
+
+        return turrets[1]
+    end,
 	get_ordered_turret_targets = function(self, turret, minions)
 		local turret_prio_list = {}
 		local priority = {
@@ -1114,7 +1213,7 @@ local xHelper = class({
 		}
 	
 		for i, unit in ipairs(minions) do
-			local dist = vec3Util:distance(turret.position, unit.position)
+			local dist = self.vec3_util:distance(turret.position, unit.position)
 			table.insert(turret_prio_list, {
 				minion = unit,
 				distance = dist,
@@ -1224,11 +1323,8 @@ local xHelper = class({
 })
 
 --------------------------------------------------------------------------------
-
 -- Damage Library
-
 --------------------------------------------------------------------------------
-
 local damagelib = class({
 	xHelper = nil,
 	math = nil,
@@ -1491,10 +1587,8 @@ local damagelib = class({
 
 })
 
---------------------------------------------------------------------------------
-
+-------------------------------------------------------------------------------
 -- Database
-
 --------------------------------------------------------------------------------
 
 local database = class({
@@ -1726,11 +1820,8 @@ local database = class({
 	end,
 
 })
-
 --------------------------------------------------------------------------------
-
 -- Target Selector // very experimental and wip. needs to be improved.
-
 --------------------------------------------------------------------------------
 
 local Weight = {}
@@ -2186,11 +2277,8 @@ local target_selector = class({
 
 
 --------------------------------------------------------------------------------
-
 -- Permashow
-
 --------------------------------------------------------------------------------
-
 local permashow = class({
 	hotkeys_ordered = {},
 	hotkeys_id = {},
@@ -2295,7 +2383,7 @@ local permashow = class({
 		if not self.ps_enable:get_value() then return end
 
 		if self.dragging then
-			local pos = g_input:get_cursor_position()
+			local pos = g_input:get_cursor_position_game()
 			self.x:set_int(pos.x - self.drag_x)
 			self.y:set_int(pos.y - self.drag_y)
 		end
@@ -2354,7 +2442,7 @@ local permashow = class({
 		if not self.ps_enable:get_value() then
 			return
 		end
-		local pos = g_input:get_cursor_position()
+		local pos = g_input:get_cursor_position_game()
 		if g_input:is_key_pressed(e_key.lbutton) then
 			if self:is_point_inside(pos) then
 				self.dragging = true
@@ -2435,11 +2523,8 @@ local permashow = class({
 	end,
 
 })
-
 --------------------------------------------------------------------------------
-
 -- visualizer
-
 --------------------------------------------------------------------------------
 local visualizer = class({
 	Last_cast_time = g_time,
@@ -2789,11 +2874,8 @@ local visualizer = class({
 })
 
 --------------------------------------------------------------------------------
-
 -- debug
-
 --------------------------------------------------------------------------------
-
 local debug = class({
 	add = menu.get_main_window():push_navigation("xVisuals", 10000),
 	nav = menu.get_main_window():find_navigation("xVisuals"),
@@ -2873,19 +2955,20 @@ local debug = class({
 })
 
 --------------------------------------------------------------------------------
-
 -- utils
-
---------------------------------------------------------------------------------
+-------------------------------------------------------------------------------
 
 local utils = class({
 	XutilMenuCat = nil,
 	add = menu.get_main_window():push_navigation("xUtils", 10000),
 	nav = menu.get_main_window():find_navigation("xUtils"),
 	dancing = false,
-	top = nil,
-	mid = nil,
-	bot = nil,
+    new_click = nil,
+    intersect1 = nil,
+    intersect2 = nil,
+    midpoint = nil,
+    
+
 
 	init = function(self,vec3_util, util, xHelper, math, objects, damagelib, debug, permashow, target_selector)
 		self.helper = xHelper
@@ -2898,158 +2981,189 @@ local utils = class({
 		self.vec3_util = vec3_util
 		self.target_selector = target_selector
 		self.dancing = false
-		self.new_click = nil
 		self.cancel = true
+        self.bad_turret = nil
+        self.apm_limiter = g_time
 		-- -- Menus -- -- 
 		-- add menu for xUtils sect
 
 			
 		self.nav = menu.get_main_window():find_navigation("xUtils")
 		self.anti_turret_walker = self.nav:add_section("anti turret walker")
-		self.checkboxAntiTurretTechGlobal = self.anti_turret_walker:checkbox("deny turret walking in turret aggro", g_config:add_bool(false, "deny_turret_walking"))
+
+        self.checkboxAntiTurretTechGlobal_cfg = g_config:add_bool(false, "deny_turret_walking")
+		self.checkboxAntiTurretTechGlobal = self.anti_turret_walker:checkbox("deny turret walking into turrets [beta]", self.checkboxAntiTurretTechGlobal_cfg)
 		self.checkboxAntiTurretTechHarass = self.anti_turret_walker:checkbox("^ in harass", g_config:add_bool(true, "deny_turret_walking_harass"))
 		self.checkboxAntiTurretTechCombo = self.anti_turret_walker:checkbox("^ in combo", g_config:add_bool(false, "deny_turret_walking_combo"))
+
+        self.checkboxDrawTurretPrioDraws = self.anti_turret_walker:checkbox("draw turret walker draws", g_config:add_bool(true, "draw_turret_walker")) 
+        self.checkboxDrawTurretPrioDebugs = self.anti_turret_walker:checkbox("draw turret debug draws", g_config:add_bool(true, "draw_turret_walker_dbg")) 
 
 		-- draw turret prio
 		self.other = self.nav:add_section("misc")
 
-		self.checkboxDrawTurretPrio = self.anti_turret_walker:checkbox("draw turret prio", g_config:add_bool(true, "draw_turret_prio")) 
+		self.checkboxDrawTurretPrio = self.other:checkbox("draw turret prio", g_config:add_bool(true, "draw_turret_prio")) 
+
 
 	end,
 	clear = function(self)
+        if not self.dancing then return false end
+        
+            Prints("no longer dancing --> allowing movement")
 			features.orbwalker:allow_movement(true)
 			self.dancing = false
+            self.intersection1 = nil
+            self.intersection2 = nil
+            self.midpoint = nil
+            self.new_click = nil
 			return false 
 	end,
 	force_move = function(self)
+
+
 		if self.dancing and self.new_click then
-			-- Prints("lol ill fix it -->",1)
-			g_input:issue_order_move(self.new_click)
+            if self.bad_turret then 
+                local turret_pos = self.bad_turret.position
+                local radius = 870 + g_local:get_bounding_radius()
+                
+                local path_end = g_input:get_cursor_position_game()
+                if not self.vec3_util:isPointInsideCircle(path_end, turret_pos, radius-40) then
+                    
+                    Prints("path end not in thing anymore but still dancing wild")
+                    self:clear()
+                end
+            end
+            -- apm limiter is the last time we clicked, if we clicked recently then dont click again
+            if g_time - self.apm_limiter < 00.5 then Prints("apm skip") return false end
+            self.apm_limiter = g_time
+			Prints("force moving to a new click",1)
+            if self.new_click then g_input:issue_order_move(self.new_click) end
 		end
 	end,
-	deny_turret_harass = function(self, e)
-		local ai_man = g_local:get_ai_manager()
-		local path = g_local:get_ai_manager().path
+    cancel_move = function(self, e)
+        if self.dancing and self.new_click and self.bad_turret then 
 
+            local should_deny_turret =
+            (get_menu_val(self.checkboxAntiTurretTechGlobal) and not get_menu_val(self.checkboxAntiTurretTechHarass) and not get_menu_val(self.checkboxAntiTurretTechCombo)) or
+            (get_menu_val(self.checkboxAntiTurretTechHarass) and self.helper:get_mode() == mode.Harass_key) or
+            (get_menu_val(self.checkboxAntiTurretTechCombo) and self.helper:get_mode() == mode.Combo_key)
+
+            local ai_man = g_local:get_ai_manager()
+            local path_end = ai_man.path_end
+
+            if should_deny_turret and g_local.position and self.bad_turret.position and self.vec3_util:distance(g_local.position, self.bad_turret.position) < 950 and self.helper:is_under_turret(path_end) then
+                Prints("canceling move")
+                e:cancel()
+            end
+        end
+    end,
+	deny_turret_harass = function(self, e)
+        
 		if not get_menu_val(self.checkboxAntiTurretTechGlobal) then return false end
 		-- self.new_click = nil
-		local bad_turret = nil
-		local under_pos = nil
-		local mouse_pos = ai_man.path_end
-
-		if path then 
-			for _, pos in ipairs(path) do
-				local should_deny_turret =
-				(get_menu_val(self.checkboxAntiTurretTechGlobal) and not get_menu_val(self.checkboxAntiTurretTechHarass) and not get_menu_val(self.checkboxAntiTurretTechCombo)) or
-				(get_menu_val(self.checkboxAntiTurretTechHarass) and self.helper:get_mode() == mode.Harass_key) or
-				(get_menu_val(self.checkboxAntiTurretTechCombo) and self.helper:get_mode() == mode.Combo_key)
-
-				-- if pos is under turret and mode is harass redirect click outside of turret range using exttend 
-				if pos and should_deny_turret then
-					local isunder, turret = self.helper:is_under_turret(pos)	
-					if isunder and turret and  g_local.position:dist_to(turret.position) < 1200 then
-						Prints("ya it's under turret",1)
-						under_pos = pos
-						bad_turret = turret
-						break  
-					else
-						-- Prints("not under turret",1)
-					end
-				end
-			end
-		end
-		if under_pos and bad_turret then 
-			--allow move false 
-			features.orbwalker:allow_movement(false)
-			self.new_click = self.vec3_util:extend(bad_turret.position, under_pos, 950)
-			self.dancing = true
-			Prints("assigned dancing, assign new click, disabled orb",1)
-		else
-			-- Prints("not under turret",1)
-			-- features.orbwalker:allow_movement(true)
-			-- self.dancing = false
-		end
-	end,
-	reevaluate = function(self, e)
-		-- if features.orbwalker:can_move() then return false end
-
 		local ai_man = g_local:get_ai_manager()
 		local path = g_local:get_ai_manager().path
-		local bad_turret = nil
-		local under_pos = nil
-		local should_deny_turret =
-		(get_menu_val(self.checkboxAntiTurretTechGlobal) and not get_menu_val(self.checkboxAntiTurretTechHarass) and not get_menu_val(self.checkboxAntiTurretTechCombo)) or
-		(get_menu_val(self.checkboxAntiTurretTechHarass) and self.helper:get_mode() == mode.Harass_key) or
-		(get_menu_val(self.checkboxAntiTurretTechCombo) and self.helper:get_mode() == mode.Combo_key)
+		local mouse_pos = g_input:get_cursor_position_game()
 
-		if not should_deny_turret then 
-			self:clear()
-		end
+        local should_deny_turret =
+        (get_menu_val(self.checkboxAntiTurretTechGlobal) and not get_menu_val(self.checkboxAntiTurretTechHarass) and not get_menu_val(self.checkboxAntiTurretTechCombo)) or
+        (get_menu_val(self.checkboxAntiTurretTechHarass) and self.helper:get_mode() == mode.Harass_key) or
+        (get_menu_val(self.checkboxAntiTurretTechCombo) and self.helper:get_mode() == mode.Combo_key)
+        
+        local nearest_enemy_turret = self.helper:get_nearest_turret()
+        if not nearest_enemy_turret  then return false end
+        self.bad_turret = nearest_enemy_turret
+        local turret_pos = nearest_enemy_turret.position
+        
+        if not should_deny_turret  or self.vec3_util:distance(g_local.position, turret_pos) > 1000 then 
+            if self.dancing then
+                Prints("should not deny and not dancing so...")
+                self:clear()
+            end
+            return false 
+        end
 
-		if path then 
-			for _, pos in ipairs(path) do
-				-- if pos is under turret and mode is harass redirect click outside of turret range using exttend 
-				if pos and should_deny_turret then
-					local isunder, turret = self.helper:is_under_turret(pos)	
-					bad_turret = turret
-					if isunder and turret and  g_local.position:dist_to(turret.position) < 1200 then
-						self.new_click = vec3Util:extend(turret.position, pos, 1000)
-						break  
-					else
-					end
-				else
-					self:clear()
-				end
-			end
-		end
-		
-		
-		if (under_pos and bad_turret) or (self.helper:is_under_turret(ai_man.path_end)) then 
-			
-			local turret_pos = bad_turret.position
-			local radius = 930
-			
-			local line_start = ai_man.path_start
-			local line_end = ai_man.path_end
+        local radius = 870
+        
+        local line_start = self.vec3_util:extend(g_local.position,turret_pos, g_local:get_bounding_radius()+15)
+        local line_end = self.vec3_util:extend(g_local.position, mouse_pos, self.vec3_util:distance(g_local.position, mouse_pos))
+
+        local does_intersect, point1, point2  = self.vec3_util:doesLineIntersectCircle(line_start, line_end, turret_pos, radius)
+        local mouse_within = self.vec3_util:distance(mouse_pos, turret_pos) < 1600
+        local player_within = self.vec3_util:distance(g_local.position, turret_pos) < 4000
+    
+        if (does_intersect or mouse_within or player_within) and point1 then
+            self.intersection1 = point1
+            self.intersection2 = point2
+            self.new_click = nil
+            --cleared     
+            self.dancing = true
+            features.orbwalker:allow_movement(false)              
+
+            local safe_spoot = self.vec3_util:avoid_circle_by_closest_tangent(g_local.position, turret_pos, radius, mouse_pos, 0)
+            if safe_spoot then
+                self.new_click = safe_spoot
+            end
 
 
-			--does this line intersect with the circle?
-			local does_intersect,intersect_point = self.vec3_util:doesLineIntersectCircle(line_start, line_end, turret_pos, radius)
-			if does_intersect then
-				if not self.vec3_util:isPointInsideCircle(line_start, turret_pos, radius) then
-					e:cancel()
-				end
-				
-				self.new_click = self.vec3_util:extend(g_local.position, intersect_point, 1000)
-				--stop orb
-				features.orbwalker:allow_movement(false)
-				--move
-				g_input:issue_order_move(self.new_click)
-			end
-		else
-			self:clear()
-		end
+            if self.helper:is_under_turret(g_local.position) then
+                -- can we vector this slightly towards the mouse i wonder?
+                local self_vector = self.vec3_util:extend(turret_pos, g_local.position, radius+145)
+                local mouse_vector = self.vec3_util:extend(turret_pos, mouse_pos, radius+145)
+        
+                local angled_vector = self.vec3_util:midpoint(self_vector, mouse_vector)
+                self.new_click = angled_vector
+            end
+        else
+            -- Prints("no intersect")
+        end
 
-	end,
+    end,
 	draw = function (self)	
-		local ai_man = g_local:get_ai_manager()
-		local path_end = ai_man.path_end
-		-- if ai_man and path_end then 
-		-- 	for _, pos in ipairs(ai_man.path) do 
-		-- 		self.vec3_util:drawCircleFull(pos, self.util.Colors.solid.red, 7)
-		-- 	end
-		-- 	self.vec3_util:drawCircleFull(path_end, self.util.Colors.solid.red, 35)
-		-- end
-		if self.new_click and self.dancing then
-			--ai man
+        if get_menu_val(self.checkboxDrawTurretPrioDraws) then
+            local ai_man = g_local:get_ai_manager()
+            local path_end = ai_man.path_end
+            
+            if self.new_click and self.dancing then
+                -- draw new click
+                self.vec3_util:drawLine(g_local.position, self.new_click, self.util.Colors.solid.green, 2)
+                self.vec3_util:drawCircleFull(self.new_click, self.util.Colors.solid.green, 35)
+                if get_menu_val(self.checkboxDrawTurretPrioDebugs) then
 
-			self.vec3_util:drawCircleFull(self.new_click, self.util.Colors.solid.blue, 35)
+                    --draw intersect 1
+                    if self.intersection1 then
+                        self.vec3_util:drawCircleFull(self.intersection1, self.util.Colors.solid.red, 15)
+                    end
+                    --draw intersect 2
+                    if self.intersection2 then
+                        self.vec3_util:drawCircleFull(self.intersection2, self.util.Colors.solid.red, 15)
+                    end
+                    --draw line between intersects
+                    if self.intersection1 and self.intersection2 then
+                        self.vec3_util:drawLine(self.intersection1, self.intersection2, self.util.Colors.solid.red, 2)
+                    end
 
-			--draw a line from me to mid
-			self.vec3_util:drawLine(g_local.position, self.new_click, self.util.Colors.solid.green, 2)
-			-- self:clear()
 
-	  	end
+                    -- pathed
+                    self.vec3_util:drawLine(g_local.position, path_end, self.util.Colors.solid.blue, 2)
+                    self.vec3_util:drawCircleFull(path_end, self.util.Colors.solid.blue, 35)
+
+                    if top then
+                        self.vec3_util:drawCircleFull(top, self.util.Colors.solid.red, 35)
+                        self.vec3_util:drawLine(top, g_local.position, self.util.Colors.solid.red, 2)
+                    end
+                    if mid then 
+                        self.vec3_util:drawCircleFull(mid, color:new(128, 255, 255), 35)
+                    end
+                    
+                    if bot then
+                        self.vec3_util:drawCircleFull(bot, color:new(128, 255, 255), 35)
+                    end
+                end
+            end
+
+        end
+
 		-- if turret prio
 
 		if self.checkboxDrawTurretPrio:get_value() then	
@@ -3074,11 +3188,8 @@ local utils = class({
 				end
 			  end
 		end
-		
+
 	end
-
-
-
 })
 
 
@@ -3095,7 +3206,7 @@ local x = class({
 	util = util:new(),
 	permashow = permashow:new(),
 	buffcache = buffcache:new(),
-	helper = xHelper:new(buffcache),
+	helper = xHelper:new(vec3Util, buffcache),
 	math = math:new(xHelper, buffcache),
 	database = database:new(xHelper),
 	objects = objects:new(xHelper, math, database, util),
@@ -3110,6 +3221,9 @@ local x = class({
 		print("=-=--=-=-=-=-==-=--==-=-=--=-==--==-=--=-=--=-=--=-=--=-=--=-=--=-=--=-=--=-=--=-=--=-")
 		local idk = self.damagelib ~= nil
 		print("X core loaded: " .. tostring(idk))
+
+
+        self.permashow:register("anti Turret walker", "Anti turret walker", "N", true, utils.checkboxAntiTurretTechGlobal_cfg)
 
 
 		cheat.on("features.pre_run", function()
@@ -3128,10 +3242,9 @@ local x = class({
 			self.permashow:tick()
 			self.utils:force_move()
 		end)
-		cheat.on("local.issue_order_move", function(e)
-			self.utils:reevaluate(e)
+        cheat.on("local.issue_order_move", function(e)
+			self.utils:cancel_move(e)
 		end)
-
 		cheat.on("features.orbwalker", function(e)
 			self.utils:deny_turret_harass(e)
 		end)
