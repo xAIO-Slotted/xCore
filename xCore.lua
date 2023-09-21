@@ -1,4 +1,4 @@
-XCORE_VERSION = "1.1.9"
+XCORE_VERSION = "1.2.0"
 XCORE_LUA_NAME = "xCore.lua"
 XCORE_REPO_BASE_URL = "https://raw.githubusercontent.com/xAIO-Slotted/xCore/main/"
 XCORE_REPO_SCRIPT_PATH = XCORE_REPO_BASE_URL .. XCORE_LUA_NAME
@@ -2997,6 +2997,7 @@ local utils = class({
 			
 		self.nav = menu.get_main_window():find_navigation("xUtils")
 		self.anti_turret_walker = self.nav:add_section("anti turret walker")
+		self.safety_sec = self.nav:add_section("Safety")
 
         self.checkboxAntiTurretTechGlobal_cfg = g_config:add_bool(false, "deny_turret_walking")
 		self.checkboxAntiTurretTechGlobal = self.anti_turret_walker:checkbox("deny turret walking into turrets [beta]", self.checkboxAntiTurretTechGlobal_cfg)
@@ -3006,9 +3007,15 @@ local utils = class({
         self.checkboxDrawTurretPrioDraws = self.anti_turret_walker:checkbox("draw turret walker draws", g_config:add_bool(true, "draw_turret_walker")) 
         self.checkboxDrawTurretPrioDebugs = self.anti_turret_walker:checkbox("draw turret debug draws", g_config:add_bool(true, "draw_turret_walker_dbg")) 
 
+
+		-- Safety
+
+		self.anti_wall_flash = self.safety_sec:checkbox("stop flash fails", g_config:add_bool(true, "anti_wall_flash"))
+		self.anti_short_flash = self.safety_sec:checkbox("auto extend flash", g_config:add_bool(true, "anti_short_flash"))
+		self.safe_flash_key = self.safety_sec:slider_int("Flash key [DEFAULT: U, 85]:", g_config:add_int(85, "safe_flash_key"), 0, 179, 1)
+
 		-- draw turret prio
 		self.other = self.nav:add_section("misc")
-
 		self.checkboxDrawTurretPrio = self.other:checkbox("draw turret prio", g_config:add_bool(true, "draw_turret_prio")) 
 
 
@@ -3254,6 +3261,9 @@ local x = class({
 		end)
 		cheat.on("features.orbwalker", function(e)
 			self.utils:deny_turret_harass(e)
+		end)
+		cheat.on("local.cast_spell", function(e)
+			print("attempt to cancel ") e:cancel()
 		end)
 
 	end,
