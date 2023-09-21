@@ -1,11 +1,10 @@
-XCORE_VERSION = "1.1.8"
+XCORE_VERSION = "1.1.9"
 XCORE_LUA_NAME = "xCore.lua"
 XCORE_REPO_BASE_URL = "https://raw.githubusercontent.com/xAIO-Slotted/xCore/main/"
 XCORE_REPO_SCRIPT_PATH = XCORE_REPO_BASE_URL .. XCORE_LUA_NAME
 local std_math = math
 
 --------------------------------------------------------------------------------
-
 local font = 'Corbel'
 
 local e_key = {
@@ -110,14 +109,14 @@ local mode = {
 }
 
 local chance_strings = {
-	[0] = "low",
+    [0] = "low",
 	[1] = "medium",
 	[2] = "high",
 	[3] = "very_high",
 	[4] = "immobile"
 }
 
- local buff_type = {
+local buff_type = {
 	Internal = 0,
 	Aura = 1,
 	CombatEnchancer = 2,
@@ -159,8 +158,16 @@ local chance_strings = {
 	Unkillable = 38
  }
  local rates = { "slow", "instant", "very slow" }
+ local function Prints(str, level)
+    if core then 
+		if core.debug then
+			core.debug:Print(str, level)
+		end
+	else
+	end
+end
  
- function get_menu_val(cfg)
+local function get_menu_val(cfg)
 	return cfg:get_value()
 end
 
