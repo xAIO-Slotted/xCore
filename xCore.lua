@@ -1,4 +1,4 @@
-XCORE_VERSION = "1.2.2"
+XCORE_VERSION = "1.2.3"
 XCORE_LUA_NAME = "xCore.lua"
 XCORE_REPO_BASE_URL = "https://raw.githubusercontent.com/xAIO-Slotted/xCore/main/"
 XCORE_REPO_SCRIPT_PATH = XCORE_REPO_BASE_URL .. XCORE_LUA_NAME
@@ -1356,6 +1356,7 @@ local xHelper = class({
 --------------------------------------------------------------------------------
 local damagelib = class({
 	xHelper = nil,
+	objects = nil,
 	math = nil,
 	database = nil,
 	buffcache = nil,
@@ -1442,22 +1443,25 @@ local damagelib = class({
 			-- type3 = 0.08,
 		}
 	},
-	init = function(self, xHelper, math, database, buffcache)
+	init = function(self, objects, xHelper, math, database, buffcache)
+		self.objects = objects
 		self.xHelper = xHelper
 		self.math = math
 		self.database = database
 		self.buffcache = buffcache
 	end,
 	get_turret_shots_to_kill_minion = function(self, minion)
-		local damageModifier = self:getTurretDamageModifier(minion)
-		local turretShotsRequired = std_math.ceil(minion.health / (minion.max_health * damageModifier))
-		return turretShotsRequired
+		local damageModifier = self:getTurretDamageModifier(minion)  -- For example: 0.7 for 70%
+		local damage_per_shot = damageModifier * minion.max_health
+		local shots_required = std_math.ceil(minion.health / damage_per_shot)
+			return shots_required
 	end,
 	get_cumulative_turret_shots_to_kill = function(self, turret, sorted_minions)
 		local cumulativeShots = 0
 		for _, minion in ipairs(sorted_minions) do
 			cumulativeShots = cumulativeShots + self:get_turret_shots_to_kill_minion(minion)
 		end
+		print("returns " .. cumulativeShots)
 		return cumulativeShots
 	end,
 	get_num_aa_to_kill = function(self, champion, minion)
@@ -1637,12 +1641,12 @@ local damagelib = class({
 		return 0
 	end,
 	getTurretDamageModifier = function(self, minion)
-		if self.TURRET_DAMAGE_MODIFIERS[minion.minion_type] then
-			if type(self.TURRET_DAMAGE_MODIFIERS[minion.minion_type]) == "table" then
+		if self.TURRET_DAMAGE_MODIFIERS[self.objects:get_minion_type(minion)] then
+			if type(self.TURRET_DAMAGE_MODIFIERS[self.objects:get_minion_type(minion)]) == "table" then
 				-- Assuming the minion is a siege minion. Adjust as needed.
-				return self.TURRET_DAMAGE_MODIFIERS[minion.minion_type].default
+				return self.TURRET_DAMAGE_MODIFIERS[self.objects:get_minion_type(minion)].default
 			else
-				return self.TURRET_DAMAGE_MODIFIERS[minion.minion_type]
+				return self.TURRET_DAMAGE_MODIFIERS[self.objects:get_minion_type(minion)]
 			end
 		end
 		return 1  -- Default
@@ -3339,9 +3343,9 @@ local utils = class({
 	
 					if get_menu_val(self.checkboxTurretShotsRemaining) then
 						local cumulativeShots = minion_info.cumulativeShots
-						local shotTextPosition = self.vec3_util:add(minion.position, vec3.new(0, (cumulativeShots == 1) and 10 or -10, 0))
-						local shotText = cumulativeShots == 1 and "dying" or cumulativeShots .. " trt shots to kill"
-						self.vec3_util:drawText(shotText, shotTextPosition, self.util.Colors.solid.red, 20)
+						local shotTextPosition = self.vec3_util:add(minion.position, vec3.new(0, (cumulativeShots == 1) and 12 or -12, 0))
+						local shotText = cumulativeShots == 1 and "dying" or cumulativeShots .. " trt shots remain"
+						self.vec3_util:drawText(shotText, shotTextPosition, self.util.Colors.solid.green, 22)
 					end
 	
 					if get_menu_val(self.checkboxDrawPrepInstructions) then
@@ -3421,7 +3425,7 @@ local x = class({
 	math = math:new(xHelper, buffcache),
 	database = database:new(xHelper),
 	objects = objects:new(xHelper, math, database, util),
-	damagelib = damagelib:new(xHelper, math, database, buffcache),
+	damagelib = damagelib:new(objects, xHelper, math, database, buffcache),
 	visualizer = visualizer:new(util, vec3Util, xHelper, math, objects, damagelib),
 	debug = debug:new(util),
 	target_selector = target_selector:new(xHelper, math, objects, damagelib),
