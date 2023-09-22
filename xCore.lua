@@ -1,11 +1,11 @@
-XCORE_VERSION = "1.2.1"
+XCORE_VERSION = "1.2.2"
 XCORE_LUA_NAME = "xCore.lua"
 XCORE_REPO_BASE_URL = "https://raw.githubusercontent.com/xAIO-Slotted/xCore/main/"
 XCORE_REPO_SCRIPT_PATH = XCORE_REPO_BASE_URL .. XCORE_LUA_NAME
 local std_math = math
 
 --------------------------------------------------------------------------------
-local font = 'Corbel'
+local font = "Corbel"
 
 local e_key = {
 	lbutton = 1,
@@ -253,6 +253,15 @@ local function check_for_update(x)
 end
 
 
+local function table_contains(tbl, value)
+	for _, v in ipairs(tbl) do
+		if v == value then
+			return true
+		end
+	end
+	return false
+end
+
 local function class(properties, ...)
 	local cls = {}
 	cls.__index = cls
@@ -337,11 +346,17 @@ local vec3Util = class({
 		return ret
 		
 	end,
+	add = function(self, v1, v2)
+		local x = v1.x + v2.x
+		local y = v1.y + v2.y
+		local z = v1.z + v2.z
+		return vec3.new(x, y, z)
+	end,
 	subtract = function(self, v1, v2)
 		local x = v1.x - v2.x
 		local y = v1.y - v2.y
 		local z = v1.z - v2.z
-		return vec3:new(x, y, z)
+		return vec3.new(x, y, z)
 	end,
     midpoint = function(self, v1, v2)
         local x = (v1.x + v2.x) / 2
@@ -353,7 +368,7 @@ local vec3Util = class({
         local dx = v.x
         local dy = v.y
         local dz = v.z
-        local length = math.sqrt(dx * dx + dy * dy + dz * dz)
+        local length = std_math.sqrt(dx * dx + dy * dy + dz * dz)
         
         -- Check if length is zero to avoid division by zero
         if length == 0 then
@@ -907,6 +922,7 @@ local objects = class({
 		end
 		return 0
 	end,
+	
 	get_current_target_of_slot = function(self, slots, unit)
 		unit = unit or g_local
 		local target = nil
@@ -1050,6 +1066,14 @@ local objects = class({
 		local num = #self:get_enemy_minions(range, position) or 0
 		return num
 	end,
+	--self.objects:is_valid_minion(self, minion)
+	is_valid_minion = function(self, minion,range)
+		local range = range or 99999
+		if minion and self.xHelper:is_alive(minion) and minion.health > 0 then
+			return true
+		end
+		return false
+	end,
 	is_big_jungle = function(self, object)
 		local name = object:get_object_name():lower()		
 		local bigJungleMonsters = {
@@ -1159,18 +1183,18 @@ local xHelper = class({
         self.vec3_util = vec3_util
 		self.buffcache = buffcache
 	end,
-	is_under_turret = function(self,pos, enemy_only)
-		enemy_only = enemy_only or true
+	is_under_turret = function(self,pos, check_allies)
+		check_allies = check_allies or false
 		pos = pos or g_local.position
 		local range = 915
 		
 		for _, unit in ipairs(features.entity_list:get_enemy_turrets()) do
-		  if unit  and unit:is_alive() then
-			local dist_away = self.vec3_util:distance(unit.position, pos)
-			if dist_away < range then return true, unit end
-		  end
+			if unit  and unit:is_alive() then
+				local dist_away = self.vec3_util:distance(unit.position, pos)
+				if dist_away < range then return true, unit end
+			end
 		end
-		if not enemy_only then
+		if (check_allies) then
 			for _, unit in ipairs(features.entity_list:get_ally_turrets()) do
 				if unit and unit:is_alive() then
 					local dist_away = self.vec3_util:distance(unit.position, pos)
@@ -1184,9 +1208,7 @@ local xHelper = class({
     get_nearest_turret = function(self, pos, enemy_only)
         pos = pos or g_local.position
         enemy_only = enemy_only or true
-        -- get all the turrets
-        -- sort them by distance to pos
-        -- return closest one
+
         local turrets = {}
         enemy_only = enemy_only or true
         pos = pos or g_local.position
@@ -1320,7 +1342,7 @@ local xHelper = class({
 
 	is_valid = function(self, unit)
 		return unit and not unit:is_invalid_object() and unit:is_visible()
-			and unit:is_alive() and unit:is_targetable()
+			and self:is_alive(unit) and unit:is_targetable()
 	end,
 
 	get_latency = function(self)
@@ -1410,15 +1432,38 @@ local damagelib = class({
 			args.raw_magical = args.raw_magical + damage
 		end
 	},
-
-
+	TURRET_DAMAGE_MODIFIERS = {
+		[2] = 0.45,  -- Melee
+		[1] = 0.70,  -- Caster
+		[3] = {
+			default = 0.14,  
+			-- You can expand this for different turret types if needed
+			-- type2 = 0.11,
+			-- type3 = 0.08,
+		}
+	},
 	init = function(self, xHelper, math, database, buffcache)
 		self.xHelper = xHelper
 		self.math = math
 		self.database = database
 		self.buffcache = buffcache
 	end,
-
+	get_turret_shots_to_kill_minion = function(self, minion)
+		local damageModifier = self:getTurretDamageModifier(minion)
+		local turretShotsRequired = std_math.ceil(minion.health / (minion.max_health * damageModifier))
+		return turretShotsRequired
+	end,
+	get_cumulative_turret_shots_to_kill = function(self, turret, sorted_minions)
+		local cumulativeShots = 0
+		for _, minion in ipairs(sorted_minions) do
+			cumulativeShots = cumulativeShots + self:get_turret_shots_to_kill_minion(minion)
+		end
+		return cumulativeShots
+	end,
+	get_num_aa_to_kill = function(self, champion, minion)
+		local aa_dmg = self:calc_aa_dmg(champion, minion)
+		return std_math.ceil(minion.health / aa_dmg)
+	end,
 	check_for_passives = function(self, args)
 		local source = args.source
 		local buff = self.buffcache:get_buff(source, "6672buff") -- Kraken Slayer
@@ -1591,7 +1636,21 @@ local damagelib = class({
 
 		return 0
 	end,
-
+	getTurretDamageModifier = function(self, minion)
+		if self.TURRET_DAMAGE_MODIFIERS[minion.minion_type] then
+			if type(self.TURRET_DAMAGE_MODIFIERS[minion.minion_type]) == "table" then
+				-- Assuming the minion is a siege minion. Adjust as needed.
+				return self.TURRET_DAMAGE_MODIFIERS[minion.minion_type].default
+			else
+				return self.TURRET_DAMAGE_MODIFIERS[minion.minion_type]
+			end
+		end
+		return 1  -- Default
+	end,
+	getShotsRequired = function(self, minion)
+		local modifier = self:getTurretDamageModifier(minion)
+		return math.ceil(minion.health / (minion.max_health * modifier))
+	end,
 })
 
 -------------------------------------------------------------------------------
@@ -2974,6 +3033,8 @@ local utils = class({
     intersect1 = nil,
     intersect2 = nil,
     midpoint = nil,
+	focused_minions = {},
+	active_turret = nil,
     
 
 
@@ -2991,6 +3052,8 @@ local utils = class({
 		self.cancel = true
         self.bad_turret = nil
         self.apm_limiter = g_time
+
+
 		-- -- Menus -- -- 
 		-- add menu for xUtils sect
 
@@ -3007,18 +3070,25 @@ local utils = class({
         self.checkboxDrawTurretPrioDraws = self.anti_turret_walker:checkbox("draw turret walker draws", g_config:add_bool(true, "draw_turret_walker")) 
         self.checkboxDrawTurretPrioDebugs = self.anti_turret_walker:checkbox("draw turret debug draws", g_config:add_bool(true, "draw_turret_walker_dbg")) 
 
+		-- draw turret prio
+		self.turretVisualization = self.nav:add_section("misc")
+	
+		self.checkboxTurretVizGlobal = self.turretVisualization:checkbox("draw turret prio", g_config:add_bool(true, "draw_turret_prio")) 
+		self.sliderTurretVizCount = self.turretVisualization:slider_int("Number of minions to visualize (0 = all)", g_config:add_int(3, "num_minions_to_viz"), 0, 10, 1)
+		self.checkboxTurretShotsRemaining = self.turretVisualization:checkbox("Draw turret shots remaining", g_config:add_bool(true, "draw_turret_shots_remaining"))
+		self.checkboxDrawPrepInstructions = self.turretVisualization:checkbox("Draw prep instructions(almost!)", g_config:add_bool(true, "draw_prep_instructions"))
+		
+		-- Assuming each Calc checkbox is a boolean:
+		self.checkboxCalcQ = self.turretVisualization:checkbox("Calc Q damage", g_config:add_bool(true, "calc_q_damage"))
+		self.checkboxCalcW = self.turretVisualization:checkbox("Calc W damage", g_config:add_bool(true, "calc_w_damage"))
+		self.checkboxCalcE = self.turretVisualization:checkbox("Calc E damage", g_config:add_bool(true, "calc_e_damage"))
+		self.checkboxCalcR = self.turretVisualization:checkbox("Calc R damage", g_config:add_bool(true, "calc_r_damage"))
+	
 
 		-- Safety
-
 		self.anti_wall_flash = self.safety_sec:checkbox("stop flash fails", g_config:add_bool(true, "anti_wall_flash"))
 		self.anti_short_flash = self.safety_sec:checkbox("auto extend flash", g_config:add_bool(true, "anti_short_flash"))
 		self.safe_flash_key = self.safety_sec:slider_int("Flash key [D --> F]:", g_config:add_int(70, "safe_flash_key"), 68, 70, 2)
-
-		-- draw turret prio
-		self.other = self.nav:add_section("misc")
-		self.checkboxDrawTurretPrio = self.other:checkbox("draw turret prio", g_config:add_bool(true, "draw_turret_prio")) 
-
-
 	end,
 	clear = function(self)
         if not self.dancing then return false end
@@ -3163,6 +3233,126 @@ local utils = class({
         end
 
     end,
+	should_focus_minions = function(self)
+		local player_under_turret, turret_player = self.helper:is_under_turret(g_local.position, true)
+		local mouse_under_turret, turret_mouse = self.helper:is_under_turret(g_input:get_cursor_position_game(), true)
+	
+		if player_under_turret then
+			return true, turret_player
+		elseif mouse_under_turret then
+			return true, turret_mouse
+		end
+		
+		return false, nil
+	end,
+	strategize_minions = function (self)
+		-- this does nothing! -- 
+		
+	end,
+	update_focused_minions = function(self)
+		local retained_indices = {}
+		local priority = {
+			[3] = 1,  -- Siege Minions
+			[2] = 2,  -- Melee Minions
+			[1] = 3   -- Ranged Minions
+			-- If Super Minions have a different priority, adjust here.
+			-- Currently, Super Minions (4) will be at the end due to the default sorting mechanism.
+		}
+		-- validate the fast list, clear out old dead minions
+		local should_focus_minions, turret = self:should_focus_minions()
+
+		self.active_turret = turret
+		if should_focus_minions and turret then 
+			for i=#self.focused_minions, 1, -1 do
+				local minion_info = self.focused_minions[i]
+				local minion = features.entity_list:get_by_index(minion_info.index)
+		
+				if not self.objects:is_valid_minion(minion) then
+					table.remove(self.focused_minions, i)
+				else
+					table.insert(retained_indices, minion_info.index)
+				end
+			end
+			local new_mins = self.objects:get_enemy_minions(1000, turret.position)
+
+
+			-- add any minions that need to go on the fast list from the slow list
+			for _, new_min in ipairs(new_mins) do
+				if not table_contains(retained_indices, new_min.index) then
+					local new_minion_info = {
+						index = new_min.index,
+					}
+					table.insert(self.focused_minions, new_minion_info)
+				end
+			end
+
+			-- now the fast list is up to date we can update all the properties on it
+			for _, minion_info in ipairs(self.focused_minions) do
+				local minion = features.entity_list:get_by_index(minion_info.index)
+				if minion then
+					minion_info.minion = minion
+					minion_info.hp = minion.health 
+					minion_info.aa_to_kill = self.damagelib:get_num_aa_to_kill(g_local, minion)
+					minion_info.type = self.objects:get_minion_type(minion)
+					minion_info.prio = priority[self.objects:get_minion_type(minion)] or 4  or 4  -- defaults to 4 (lowest priority) if minion_type not in priority table
+					minion_info.dist = self.vec3_util:distance(self.active_turret.position, minion.position)
+				end
+			end
+
+			-- now sort it...
+			table.sort(self.focused_minions, function(a, b)
+				if a.prio == b.prio then
+					return a.dist < b.dist
+				end
+				return a.prio < b.prio
+			end)
+
+			-- -- now we do the cumulative :dizzy_face:
+			local turret_shot_count = 0
+			for _, minion_info in ipairs(self.focused_minions) do
+				local minion = minion_info.minion
+				if minion then
+					turret_shot_count = turret_shot_count + self.damagelib:get_turret_shots_to_kill_minion(minion)
+					minion_info.cumulativeShots = turret_shot_count
+				end
+			end
+			-- do more!
+		else
+			self.active_turret = nil
+			self.focused_minions = {}
+		end
+		
+		-- self.strategize_minions()
+	end,
+	visualize_turret_priority = function(self)
+		if get_menu_val(self.checkboxTurretVizGlobal) and self.active_turret and self.focused_minions and #self.focused_minions > 0 then
+			local turret = self.active_turret
+			local amount_to_show = get_menu_val(self.sliderTurretVizCount, true)
+	
+			for i, minion_info in ipairs(self.focused_minions) do
+				local minion = minion_info.minion
+				if i <= amount_to_show or amount_to_show == 0 then
+					self.vec3_util:drawCircle(minion.position, self.util.Colors.transparent.lightCyan, 50)
+	
+					local order_priority_position = self.vec3_util:add(minion.position, vec3.new(-30, 0, 0))
+					self.vec3_util:drawText(i, order_priority_position, self.util.Colors.solid.lightCyan, 30)
+	
+					if get_menu_val(self.checkboxTurretShotsRemaining) then
+						local cumulativeShots = minion_info.cumulativeShots
+						local shotTextPosition = self.vec3_util:add(minion.position, vec3.new(0, (cumulativeShots == 1) and 10 or -10, 0))
+						local shotText = cumulativeShots == 1 and "dying" or cumulativeShots .. " trt shots to kill"
+						self.vec3_util:drawText(shotText, shotTextPosition, self.util.Colors.solid.red, 20)
+					end
+	
+					if get_menu_val(self.checkboxDrawPrepInstructions) then
+						local num_attacks_needed = minion_info.aa_to_kill
+						local aa_position = self.vec3_util:add(minion.position, vec3.new(0, -50, 0))
+						self.vec3_util:drawText(num_attacks_needed .. " aa to kill", aa_position, self.util.Colors.solid.lightCyan, 20)
+					end
+				end
+			end
+		end
+	end,
 	draw = function (self)	
         if get_menu_val(self.checkboxDrawTurretPrioDraws) then
             local ai_man = g_local:get_ai_manager()
@@ -3209,30 +3399,7 @@ local utils = class({
         end
 
 		-- if turret prio
-
-		if self.checkboxDrawTurretPrio:get_value() then	
-			for _, v in ipairs(features.entity_list:get_ally_turrets()) do
-				local turret = v
-				-- print turret dist to me and my attack range
-				  
-				if v and not v:is_dead() and not v:is_invisible() then 
-					local dist = g_local.position:dist_to(turret.position)
-					local myatkrange = g_local.attack_range+350
-					-- Prints("dist: " .. std_math.floor(dist) .. "/" .. myatkrange, 1)	
-				end
-				if turret and turret.position and turret.position:dist_to(g_local.position) < g_local.attack_range+350 then
-				  local minions = self.objects:get_enemy_minions(860, turret.position)
-				  if #minions > 0 then 
-					local sorted = self.objects:get_ordered_turret_targets(turret, minions)
-					for i, minion in ipairs(sorted) do
-				
-					  self.vec3_util:drawText(i, minion.position, util.Colors.solid.lightCyan, 30)
-					end
-				  end
-				end
-			  end
-		end
-
+		self:visualize_turret_priority()
 	end
 })
 
@@ -3286,6 +3453,7 @@ local x = class({
 			self.permashow:tick()
 			self.utils:force_move()
 			self.utils:safe_flash()
+			self.utils:update_focused_minions()
 		end)
         cheat.on("local.issue_order_move", function(e)
 			self.utils:cancel_move(e)
