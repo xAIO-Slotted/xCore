@@ -1,4 +1,4 @@
-XCORE_VERSION = "1.2.3"
+XCORE_VERSION = "1.2.4"
 XCORE_LUA_NAME = "xCore.lua"
 XCORE_REPO_BASE_URL = "https://raw.githubusercontent.com/xAIO-Slotted/xCore/main/"
 XCORE_REPO_SCRIPT_PATH = XCORE_REPO_BASE_URL .. XCORE_LUA_NAME
@@ -1189,7 +1189,7 @@ local xHelper = class({
 		local range = 915
 		
 		for _, unit in ipairs(features.entity_list:get_enemy_turrets()) do
-			if unit  and unit:is_alive() then
+			if unit and unit:is_alive() then
 				local dist_away = self.vec3_util:distance(unit.position, pos)
 				if dist_away < range then return true, unit end
 			end
@@ -1324,9 +1324,13 @@ local xHelper = class({
 		local alive = unit and not unit:is_invalid_object() and unit:is_visible() and unit:is_alive() and
 			unit:is_targetable()
 			and not self.buffcache:has_buff(unit, "sionpassivezombie")
+			and type(unit:get_object_name()) == "string"
 			and not unit:get_object_name():lower():find("corpse")
 			and unit.position ~= nil
 
+		if type(unit:get_object_name()) ~= "string" then
+			print("tf? this units name was type: " .. type(unit:get_object_name()))
+		end
 		-- print("checking alive: " .. tostring(unit:get_object_name()))
 		-- print("invalid: " ..tostring( unit:is_invalid_object()))
 		-- print("visible: " .. tostring(unit:is_visible()))
@@ -3256,13 +3260,10 @@ local utils = class({
 	update_focused_minions = function(self)
 		local retained_indices = {}
 		local priority = {
-			[3] = 1,  -- Siege Minions
-			[2] = 2,  -- Melee Minions
-			[1] = 3   -- Ranged Minions
-			-- If Super Minions have a different priority, adjust here.
-			-- Currently, Super Minions (4) will be at the end due to the default sorting mechanism.
+			[3] = 1,
+			[2] = 2,
+			[1] = 3
 		}
-		-- validate the fast list, clear out old dead minions
 		local should_focus_minions, turret = self:should_focus_minions()
 
 		self.active_turret = turret
@@ -3270,13 +3271,14 @@ local utils = class({
 			for i=#self.focused_minions, 1, -1 do
 				local minion_info = self.focused_minions[i]
 				local minion = features.entity_list:get_by_index(minion_info.index)
-		
-				if not self.objects:is_valid_minion(minion) then
-					table.remove(self.focused_minions, i)
-				else
+				
+				if minion and self.objects:is_valid_minion(minion) then
 					table.insert(retained_indices, minion_info.index)
+				else
+					table.remove(self.focused_minions, i)
 				end
 			end
+
 			local new_mins = self.objects:get_enemy_minions(1000, turret.position)
 
 
@@ -3293,7 +3295,7 @@ local utils = class({
 			-- now the fast list is up to date we can update all the properties on it
 			for _, minion_info in ipairs(self.focused_minions) do
 				local minion = features.entity_list:get_by_index(minion_info.index)
-				if minion then
+				if minion and self.objects:is_valid_minion(minion) then
 					minion_info.minion = minion
 					minion_info.hp = minion.health 
 					minion_info.aa_to_kill = self.damagelib:get_num_aa_to_kill(g_local, minion)
@@ -3315,7 +3317,7 @@ local utils = class({
 			local turret_shot_count = 0
 			for _, minion_info in ipairs(self.focused_minions) do
 				local minion = minion_info.minion
-				if minion then
+				if minion and self.objects:is_valid_minion(minion_info.minion) then
 					turret_shot_count = turret_shot_count + self.damagelib:get_turret_shots_to_kill_minion(minion)
 					minion_info.cumulativeShots = turret_shot_count
 				end
@@ -3331,27 +3333,29 @@ local utils = class({
 	visualize_turret_priority = function(self)
 		if get_menu_val(self.checkboxTurretVizGlobal) and self.active_turret and self.focused_minions and #self.focused_minions > 0 then
 			local turret = self.active_turret
-			local amount_to_show = get_menu_val(self.sliderTurretVizCount, true)
+			local amount_to_show = get_menu_val(self.sliderTurretVizCount)
 	
 			for i, minion_info in ipairs(self.focused_minions) do
 				local minion = minion_info.minion
-				if i <= amount_to_show or amount_to_show == 0 then
-					self.vec3_util:drawCircle(minion.position, self.util.Colors.transparent.lightCyan, 50)
-	
-					local order_priority_position = self.vec3_util:add(minion.position, vec3.new(-30, 0, 0))
-					self.vec3_util:drawText(i, order_priority_position, self.util.Colors.solid.lightCyan, 30)
-	
-					if get_menu_val(self.checkboxTurretShotsRemaining) then
-						local cumulativeShots = minion_info.cumulativeShots
-						local shotTextPosition = self.vec3_util:add(minion.position, vec3.new(0, (cumulativeShots == 1) and 12 or -12, 0))
-						local shotText = cumulativeShots == 1 and "dying" or cumulativeShots .. " trt shots remain"
-						self.vec3_util:drawText(shotText, shotTextPosition, self.util.Colors.solid.green, 22)
-					end
-	
-					if get_menu_val(self.checkboxDrawPrepInstructions) then
-						local num_attacks_needed = minion_info.aa_to_kill
-						local aa_position = self.vec3_util:add(minion.position, vec3.new(0, -50, 0))
-						self.vec3_util:drawText(num_attacks_needed .. " aa to kill", aa_position, self.util.Colors.solid.lightCyan, 20)
+				if minion and self.objects:is_valid_minion(minion) then
+					if i <= amount_to_show or amount_to_show == 0 then
+						self.vec3_util:drawCircle(minion.position, self.util.Colors.transparent.lightCyan, 50)
+		
+						local order_priority_position = self.vec3_util:add(minion.position, vec3.new(-30, 0, 0))
+						self.vec3_util:drawText(i, order_priority_position, self.util.Colors.solid.lightCyan, 30)
+		
+						if get_menu_val(self.checkboxTurretShotsRemaining) then
+							local cumulativeShots = minion_info.cumulativeShots
+							local shotTextPosition = self.vec3_util:add(minion.position, vec3.new(0, (cumulativeShots == 1) and 12 or -12, 0))
+							local shotText = cumulativeShots == 1 and "dying" or cumulativeShots .. " trt shots remain"
+							self.vec3_util:drawText(shotText, shotTextPosition, self.util.Colors.solid.green, 22)
+						end
+		
+						if get_menu_val(self.checkboxDrawPrepInstructions) then
+							local num_attacks_needed = minion_info.aa_to_kill
+							local aa_position = self.vec3_util:add(minion.position, vec3.new(0, -50, 0))
+							self.vec3_util:drawText(num_attacks_needed .. " aa to kill", aa_position, self.util.Colors.solid.lightCyan, 20)
+						end
 					end
 				end
 			end
