@@ -1,4 +1,4 @@
-XCORE_VERSION = "1.2.4"
+XCORE_VERSION = "1.2.5"
 XCORE_LUA_NAME = "xCore.lua"
 XCORE_REPO_BASE_URL = "https://raw.githubusercontent.com/xAIO-Slotted/xCore/main/"
 XCORE_REPO_SCRIPT_PATH = XCORE_REPO_BASE_URL .. XCORE_LUA_NAME
@@ -909,7 +909,7 @@ local objects = class({
 		return sorted_minions
 	end,
 	get_minion_type = function (self, obj_min)
-		local object_name = obj_min:get_object_name():lower()
+		local object_name = tostring(obj_min:get_object_name()):lower()
 		-- if string.find(object_name, "raned") 
 		-- types are ranged 1, melee 2, siege 3
 		-- lets return the number
@@ -1019,7 +1019,7 @@ local objects = class({
 		unit = unit or g_local
 		speed = speed or nil
 		if not speed then
-			local champion_name = unit.champion_name.text:lower() -- adjust the variable name as needed
+			local champion_name = tostring(unit.champion_name.text:lower()) -- adjust the variable name as needed
 
 			-- default missile speed
 			speed = 1000
@@ -1050,7 +1050,7 @@ local objects = class({
 
 		for _, entity in pairs(features.entity_list:get_enemy_minions()) do
 			if entity and entity.position and entity.position:dist_to(pos) <= range and core.helper:is_alive(entity) then
-				local object_name = entity:get_object_name():lower()
+				local object_name = tostring(entity:get_object_name()):lower()
 
 				if string.find(object_name, "sru_crab") or string.find(object_name, "sru_dragon") or string.find(object_name, "sru_riftherald") or string.find(object_name, "sru_baron")
 				or string.find(object_name, "sru_gromp") or string.find(object_name, "sru_blue") or string.find(object_name, "sru_murkwolf")
@@ -1075,7 +1075,7 @@ local objects = class({
 		return false
 	end,
 	is_big_jungle = function(self, object)
-		local name = object:get_object_name():lower()		
+		local name = tostring(object:get_object_name()):lower()		
 		local bigJungleMonsters = {
 			"sru_gromp",
 			"sru_blue",
@@ -1321,16 +1321,17 @@ local xHelper = class({
 	end,
 
 	is_alive = function(self, unit)
-		local alive = unit and not unit:is_invalid_object() and unit:is_visible() and unit:is_alive() and
-			unit:is_targetable()
-			and not self.buffcache:has_buff(unit, "sionpassivezombie")
-			and type(unit:get_object_name()) == "string"
-			and not unit:get_object_name():lower():find("corpse")
-			and unit.position ~= nil
+		local alive = false
+		if unit and not unit:is_invalid_object() and unit:is_visible() and unit:is_alive() and
+		unit:is_targetable()
+		and not self.buffcache:has_buff(unit, "sionpassivezombie") then
+			local name = unit:get_object_name() or ""
 
-		if type(unit:get_object_name()) ~= "string" then
-			print("tf? this units name was type: " .. type(unit:get_object_name()))
+			if type(name) == "string" and not name:lower():find("corpse") then
+				alive = true
+			end
 		end
+
 		-- print("checking alive: " .. tostring(unit:get_object_name()))
 		-- print("invalid: " ..tostring( unit:is_invalid_object()))
 		-- print("visible: " .. tostring(unit:is_visible()))
@@ -1586,9 +1587,9 @@ local damagelib = class({
 			if level > 5 then level = 5 end
 
 			
-			if self.database.DMG_LIST[source.champion_name.text:lower()] then
+			if self.database.DMG_LIST[tostring(source.champion_name.text):lower()] then
 				
-				for _, spells in ipairs(self.database.DMG_LIST[source.champion_name.text:lower()]) do
+				for _, spells in ipairs(self.database.DMG_LIST[tostring(source.champion_name.text):lower()]) do
 					if spells.slot == spell then
 						table.insert(cache, spells)
 					end
@@ -2468,27 +2469,44 @@ local permashow = class({
 		local text_size = g_render:get_text_size(self.title, font, 15)
 		local text_width = text_size.x + 20
 		local tx = x + (self.width - text_width) / 2
-		local bg_color = color:new(self.ps_color_bg_r:get_value(), self.ps_color_bg_g:get_value(),
-			self.ps_color_bg_b:get_value(), self.ps_color_bg_a:get_value())
-		local tx_color = color:new(self.ps_color_text_r:get_value(), self.ps_color_text_g:get_value(),
-			self.ps_color_text_b:get_value(), self.ps_color_text_a:get_value())
+		local bg_color_r = self.ps_color_bg_r:get_value()
+		local bg_color_g = self.ps_color_bg_g:get_value()
+		local bg_color_b = self.ps_color_bg_b:get_value()
+		local bg_color_a = self.ps_color_bg_a:get_value()
+		local txt_r = self.ps_color_text_r:get_value()
+		local txt_g = self.ps_color_text_g:get_value()
+		local txt_b = self.ps_color_text_b:get_value()
+		local txt_a = self.ps_color_text_a:get_value()
+
+		local bg_color = color:new(bg_color_r, bg_color_g, bg_color_b, bg_color_a)
+		local tx_color = color:new(txt_r, txt_g, txt_b, txt_a)
 		local count, height = 0, 0
 
-		g_render:filled_box(vec2:new(x, self.y:get_int()), vec2:new(self.width, self.height), bg_color, 10)
+		local box_bl = vec2:new(x, self.y:get_int())
+		local box_tr = vec2:new(self.width, self.height)
+		-- prints type of box_bl and box_tr
+		-- print(type(box_bl))
+		-- print(type(box_tr))
+		g_render:filled_box(box_bl, box_tr, bg_color, 10)
 
 		for _, hotkey in pairs(self.hotkeys_ordered) do
 			if hotkey.name then
 				count = count + 1
 				local text = hotkey.name .. " [" .. hotkey.key .. "] "
 				local size = g_render:get_text_size(text, font, 15)
-				local state_size = vec2:new(40, 20)
+				local state_size = vec2.new(40, 20)
 
-				g_render:text(vec2:new(x + 10, y + 30 + (count - 1) * 20), tx_color, text, font, 15)
+				local txt_x = x + 10
+				local txt_y = y + 30 + (count - 1) * 20
+				local text_pos = vec2.new(txt_x, txt_y)
+				
+				g_render:text(text_pos, tx_color, text, font, 15)
 
 				hotkey.state_rect = self:rect(x + 10 + size.x, y + 28 + (height - 1) * 20, state_size.x, state_size.y)
 
 				local state_text, state_color = self:get_state_text_and_color(hotkey)
-				local state_x = x + 10 + size.x + (state_size.x - g_render:get_text_size(state_text, font, 15).x) / 2
+				local text_size = g_render:get_text_size(state_text, font, 15).x
+				local state_x = x + 10 + size.x + (state_size.x - text_size) / 2
 				local state_y = y + 28 + (count - 1) * 20 +
 					(state_size.y - g_render:get_text_size(state_text, font, 15).y) / 2
 				g_render:text(vec2:new(state_x, state_y), state_color, state_text, font, 15)
@@ -2502,8 +2520,10 @@ local permashow = class({
 
 		self.width = std_math.max(text_width, height + 20)
 
-		g_render:filled_box(vec2:new(x, self.y:get_int()), vec2:new(self.width, 25),
-			color:new(bg_color.r, bg_color.g, bg_color.b, 255), 10)
+		local ps_box_clr = color:new(bg_color.r, bg_color.g, bg_color.b, 255)
+		local box_bl = vec2:new(x, self.y:get_int())
+		local box_tr = vec2:new(self.width, 25)
+		g_render:filled_box(box_bl, box_tr, ps_box_clr, 10)
 
 		g_render:text(vec2:new(tx + 10, y + 5), tx_color, self.title, font, 15)
 	end,
@@ -2608,6 +2628,8 @@ local visualizer = class({
 	objects = nil,
 	damagelib = nil,
 	add = menu.get_main_window():push_navigation("xVisuals", 10000),
+	checkboxVisualDmg = nil,
+	checkboxMinionDmg = nil,
 	visualizer_split_colors = nil,
 	visualizer_show_combined_bars = nil,
 	visualizer_show_stacked_bars = nil,
@@ -2644,7 +2666,7 @@ local visualizer = class({
 		self.visualizer_show_combined_bars = self.vis_sect:checkbox("Show combined bars",
 			g_config:add_bool(true, "show_combined_bars"))
 		self.visualizer_show_stacked_bars = self.vis_sect:checkbox("Show stacked bars",
-			g_config:add_bool(true, "show_stacked_bars"))
+			g_config:add_bool(false, "show_stacked_bars"))
 		self.visualizer_visualize_autos = self.vis_sect:checkbox("Visualize Autos",
 			g_config:add_bool(true, "visualize_autos"))
 		self.visualizer_autos_slider = self.vis_sect:slider_int("x", g_config:add_int(1, "autos_slider"), 1, 5, 1)
@@ -2932,7 +2954,7 @@ local visualizer = class({
 	draw = function(self)
 		if self.checkboxVisualDmg:get_value() then
 			
-			for i, enemy in pairs(features.entity_list:get_enemies()) do
+			for i, enemy in ipairs(features.entity_list:get_enemies()) do
 				if enemy and self.xHelper:is_alive(enemy) and enemy:is_visible() and g_local.position:dist_to(enemy.position) < 3000 then
 					self:Visualize_damage(enemy)
 				end
@@ -3021,7 +3043,7 @@ local debug = class({
 
 
 
-		g_render:text(pos, self.Colors.solid.white, self.LastMsg, font, 30)
+		g_render:text(pos,  self.Colors.solid.white, self.LastMsg,  font, 30)
 		g_render:text(pos1, self.Colors.solid.white, self.LastMsg1, font, 30)
 		g_render:text(pos2, self.Colors.solid.white, self.LastMsg2, font, 30)
 	end
@@ -3436,6 +3458,8 @@ local x = class({
 	utils = utils:new(vec3Util, util, xHelper, math, objects, damagelib, debug, permashow, target_selector),
 
 	init = function(self)
+		-- self.vec2_util = new vec2Util()
+
 		features.orbwalker:allow_movement(true)
 		print("=-=--=-=-=-=-==-=--==-=-=--=-==--==-=--=-=--=-=--=-=--=-=--=-=--=-=--=-=--=-=--=-=--=-")
 		local idk = self.damagelib ~= nil
@@ -3449,6 +3473,13 @@ local x = class({
 			self.target_selector:tick()
 		end)
 
+		cheat.on("features.run", function()
+			self.permashow:tick()
+			self.utils:force_move()
+			self.utils:safe_flash()
+			self.utils:update_focused_minions()
+		end)
+
 		cheat.on("renderer.draw", function()
 			self.permashow:draw()
 			self.debug:draw()
@@ -3456,23 +3487,15 @@ local x = class({
 			self.visualizer:draw()
 			self.utils:draw()
 		end)
-
-		cheat.on("features.run", function()
-			self.permashow:tick()
-			self.utils:force_move()
-			self.utils:safe_flash()
-			self.utils:update_focused_minions()
-		end)
+		
         cheat.on("local.issue_order_move", function(e)
 			self.utils:cancel_move(e)
 		end)
-		cheat.on("features.orbwalker", function(e)
-			self.utils:deny_turret_harass(e)
+		
+		cheat.on("features.orbwalker", function()
+			self.utils:deny_turret_harass()
 		end)
-
-
 	end,
-
 })
 
 -- print("-==--=-=-=-= X core Updater: =--=-=-==--=-=-=-=-=")
